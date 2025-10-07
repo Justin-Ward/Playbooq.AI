@@ -65,8 +65,8 @@ export default function Home() {
                   <svg className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
-                </div>
-              </div>
+        </div>
+      </div>
             </Link>
 
             {/* Marketplace Card */}
@@ -91,7 +91,7 @@ export default function Home() {
               </div>
             </Link>
           </div>
-        </div>
+      </div>
       </section>
 
       {/* Scrolling Ticker Tape */}
@@ -115,7 +115,7 @@ export default function Home() {
               >
                 <span className="text-gray-700 font-medium whitespace-nowrap">
                   {item}
-                </span>
+            </span>
               </div>
             ))}
             {/* Duplicate set for seamless loop */}
@@ -126,7 +126,7 @@ export default function Home() {
               >
                 <span className="text-gray-700 font-medium whitespace-nowrap">
                   {item}
-                </span>
+            </span>
               </div>
             ))}
           </div>
@@ -153,6 +153,6 @@ export default function Home() {
           </Link>
         </div>
       </section>
-    </div>
+      </div>
   )
 }
