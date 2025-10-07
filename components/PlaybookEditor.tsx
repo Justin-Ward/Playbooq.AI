@@ -730,7 +730,7 @@ export function extractTableOfContents(content: string): TableOfContentsItem[] {
     const parsed = JSON.parse(content)
     const headings: TableOfContentsItem[] = []
 
-    function traverse(node: any, id = 0, sectionNumbers: number[] = []) {
+    function traverse(node: any, id: string | number = 0, sectionNumbers: number[] = []) {
       if (node.type === 'heading') {
         const level = node.attrs?.level || 1
         

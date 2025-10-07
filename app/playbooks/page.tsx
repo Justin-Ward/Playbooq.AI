@@ -128,17 +128,18 @@ export default function PlaybooksPage() {
       })
 
       if (targetHeading) {
+        const headingElement = targetHeading as HTMLElement
         // Scroll the heading into view with smooth behavior
-        targetHeading.scrollIntoView({ 
+        headingElement.scrollIntoView({ 
           behavior: 'smooth', 
           block: 'start',
           inline: 'nearest'
         })
         
         // Add a temporary highlight effect
-        targetHeading.classList.add('bg-yellow-200', 'transition-colors', 'duration-300')
+        headingElement.classList.add('bg-yellow-200', 'transition-colors', 'duration-300')
         setTimeout(() => {
-          targetHeading?.classList.remove('bg-yellow-200')
+          headingElement.classList.remove('bg-yellow-200')
         }, 2000)
       }
     } catch (error) {

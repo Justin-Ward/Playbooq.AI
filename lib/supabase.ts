@@ -28,6 +28,9 @@ export const supabase = createClient<Database>(
 
 // Client-side helper function
 export const createSupabaseClient = () => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase URL and Anon Key must be provided')
+  }
   return createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: true,
@@ -39,6 +42,9 @@ export const createSupabaseClient = () => {
 
 // Server-side helper function for API routes
 export const createSupabaseServerClient = () => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase URL and Anon Key must be provided')
+  }
   return createClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,

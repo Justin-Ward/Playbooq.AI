@@ -43,7 +43,7 @@ async function extractTextFromFile(file: File): Promise<ProcessedFile> {
             pdfParse = pdfParseModule.default
             console.log('pdf-parse imported successfully, type:', typeof pdfParse)
           } catch (parseError) {
-            console.error('pdf-parse import failed:', parseError.message, parseError.stack?.split('\n')[0])
+            console.error('pdf-parse import failed:', parseError instanceof Error ? parseError.message : 'Unknown error', parseError instanceof Error ? parseError.stack?.split('\n')[0] : '')
             pdfParse = null
           }
           
@@ -110,7 +110,7 @@ async function extractTextFromFile(file: File): Promise<ProcessedFile> {
               })
             } catch (error) {
               lastError = error
-              console.log('Basic parsing failed:', error.message, error.stack?.split('\n')[0])
+              console.log('Basic parsing failed:', error instanceof Error ? error.message : 'Unknown error', error instanceof Error ? error.stack?.split('\n')[0] : '')
               
               // Attempt 2: With explicit options
               try {
@@ -127,7 +127,7 @@ async function extractTextFromFile(file: File): Promise<ProcessedFile> {
                 })
               } catch (error2) {
                 lastError = error2
-                console.log('Parsing with explicit options failed:', error2.message, error2.stack?.split('\n')[0])
+                console.log('Parsing with explicit options failed:', error2 instanceof Error ? error2.message : 'Unknown error', error2 instanceof Error ? error2.stack?.split('\n')[0] : '')
                 
                 // Attempt 3: Try with minimal options
                 try {
@@ -143,7 +143,7 @@ async function extractTextFromFile(file: File): Promise<ProcessedFile> {
                   })
                 } catch (error3) {
                   lastError = error3
-                  console.log('All pdf-parse attempts failed:', error3.message)
+                  console.log('All pdf-parse attempts failed:', error3 instanceof Error ? error3.message : 'Unknown error')
                   // Will fall back to pdfjs-dist below
                 }
               }
@@ -153,7 +153,7 @@ async function extractTextFromFile(file: File): Promise<ProcessedFile> {
           // If pdf-parse failed, we'll provide helpful instructions
           if (!pdfData) {
             console.log('pdf-parse failed to extract text from PDF')
-            throw new Error(`PDF parsing failed: ${lastError?.message || 'Unknown error'}`)
+            throw new Error(`PDF parsing failed: ${lastError instanceof Error ? lastError.message : 'Unknown error'}`)
           }
           
           // Check if we successfully got PDF data
@@ -181,9 +181,9 @@ async function extractTextFromFile(file: File): Promise<ProcessedFile> {
         } catch (pdfError) {
           console.error('PDF processing error:', pdfError)
           console.error('Error details:', {
-            name: pdfError.name,
-            message: pdfError.message,
-            stack: pdfError.stack?.split('\n').slice(0, 5).join('\n')
+            name: pdfError instanceof Error ? pdfError.name : 'Unknown',
+            message: pdfError instanceof Error ? pdfError.message : 'Unknown error',
+            stack: pdfError instanceof Error ? pdfError.stack?.split('\n').slice(0, 5).join('\n') : ''
           })
           
           // Graceful fallback - provide helpful instructions without failing
@@ -196,7 +196,7 @@ async function extractTextFromFile(file: File): Promise<ProcessedFile> {
 - Status: Uploaded successfully
 
 📝 Text Extraction Note:
-Automatic text extraction encountered a technical issue: "${pdfError.message}"
+Automatic text extraction encountered a technical issue: "${pdfError instanceof Error ? pdfError.message : 'Unknown error'}"
 
 This can happen with certain PDF formats, especially those with:
 - Complex layouts or formatting
