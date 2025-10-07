@@ -7,7 +7,7 @@ export default function Home() {
     "Build an app using AI",
     "Build and maintain a garden", 
     "Create an efficient company treasury department",
-    "Get a girl to like me",
+    "Develop effective networking strategies",
     "Launch a successful podcast",
     "Master digital marketing fundamentals",
     "Build a productive morning routine",
@@ -26,7 +26,7 @@ export default function Home() {
       <section className="pt-20 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-8 leading-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-8 leading-tight">
               Discover and build a{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
                 winning playbook
@@ -47,7 +47,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
             {/* Build Playbooks Card */}
-            <Link href="/playbooks" className="group">
+            <Link href="/coming-soon" className="group">
               <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-300 border border-gray-100 h-full">
                 <div className="flex items-center mb-6">
                   <div className="bg-blue-100 rounded-full p-4 mr-4 group-hover:bg-blue-200 transition-colors duration-300">
@@ -70,7 +70,7 @@ export default function Home() {
             </Link>
 
             {/* Marketplace Card */}
-            <Link href="/marketplace" className="group">
+            <Link href="/coming-soon" className="group">
               <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-300 border border-gray-100 h-full">
                 <div className="flex items-center mb-6">
                   <div className="bg-purple-100 rounded-full p-4 mr-4 group-hover:bg-purple-200 transition-colors duration-300">
@@ -114,7 +114,7 @@ export default function Home() {
                 className="flex-shrink-0 mx-4 bg-white rounded-full px-6 py-3 shadow-md border border-gray-100"
               >
                 <span className="text-gray-700 font-medium whitespace-nowrap">
-                  "{item}"
+                  {item}
                 </span>
               </div>
             ))}
@@ -125,7 +125,7 @@ export default function Home() {
                 className="flex-shrink-0 mx-4 bg-white rounded-full px-6 py-3 shadow-md border border-gray-100"
               >
                 <span className="text-gray-700 font-medium whitespace-nowrap">
-                  "{item}"
+                  {item}
                 </span>
               </div>
             ))}
@@ -143,7 +143,7 @@ export default function Home() {
             Join thousands of professionals who are scaling their success with proven playbooks.
           </p>
           <Link 
-            href="/playbooks"
+            href="/coming-soon"
             className="inline-flex items-center px-8 py-4 bg-white text-blue-600 font-bold rounded-full hover:bg-gray-50 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             Start Building
