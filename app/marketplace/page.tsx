@@ -16,7 +16,7 @@ export default function MarketplacePage() {
             <h2 className="text-xl font-semibold mb-4">Coming Soon</h2>
             <p className="text-gray-600">
               The marketplace is currently under development. 
-              Soon you'll be able to browse, purchase, and download playbooks from creators worldwide!
+              Soon you&apos;ll be able to browse, purchase, and download playbooks from creators worldwide!
             </p>
           </div>
         </div>

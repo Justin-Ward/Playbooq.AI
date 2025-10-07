@@ -17,7 +17,7 @@ export default function ComingSoon() {
               Coming Soon
             </h1>
             <p className="text-xl sm:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-              We're building something amazing for you. Playbooq.AI will help you create, 
+              We&apos;re building something amazing for you. Playbooq.AI will help you create, 
               discover, and execute winning playbooks for anything.
             </p>
           </div>
@@ -87,7 +87,7 @@ export default function ComingSoon() {
               </button>
             </div>
             <p className="text-sm text-gray-500 mt-3">
-              We'll never spam you. Unsubscribe at any time.
+              We&apos;ll never spam you. Unsubscribe at any time.
             </p>
           </div>
         </div>

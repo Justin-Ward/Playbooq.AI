@@ -158,9 +158,8 @@ function EditorToolbar({
   trackChangesEnabled = false,
   onToggleTrackChanges
 }: EditorToolbarProps) {
-  if (!editor) return null
-
   const setLink = useCallback(() => {
+    if (!editor) return
     const previousUrl = editor.getAttributes('link').href
     const url = window.prompt('URL', previousUrl)
 
@@ -180,6 +179,7 @@ function EditorToolbar({
   }, [editor])
 
   const addNote = useCallback(() => {
+    if (!editor) return
     editor.chain().focus().insertContent({
       type: 'blockquote',
       attrs: {},
@@ -203,8 +203,11 @@ function EditorToolbar({
   }, [editor])
 
   const addHorizontalRule = useCallback(() => {
+    if (!editor) return
     editor.chain().focus().setHorizontalRule().run()
   }, [editor])
+
+  if (!editor) return null
 
   const formatLastSaved = (date: Date | null) => {
     if (!date) return 'Never'
