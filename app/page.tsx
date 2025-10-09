@@ -47,7 +47,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
             {/* Build Playbooks Card */}
-            <Link href="/coming-soon" className="group">
+            <Link href="/playbooks" className="group">
               <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-300 border border-gray-100 h-full">
                 <div className="flex items-center mb-6">
                   <div className="bg-blue-100 rounded-full p-4 mr-4 group-hover:bg-blue-200 transition-colors duration-300">
@@ -70,7 +70,7 @@ export default function Home() {
             </Link>
 
             {/* Marketplace Card */}
-            <Link href="/coming-soon" className="group">
+            <Link href="/marketplace" className="group">
               <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-300 border border-gray-100 h-full">
                 <div className="flex items-center mb-6">
                   <div className="bg-purple-100 rounded-full p-4 mr-4 group-hover:bg-purple-200 transition-colors duration-300">
@@ -143,7 +143,7 @@ export default function Home() {
             Join thousands of professionals who are scaling their success with proven playbooks.
           </p>
           <Link 
-            href="/coming-soon"
+            href="/playbooks"
             className="inline-flex items-center px-8 py-4 bg-white text-blue-600 font-bold rounded-full hover:bg-gray-50 transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             Start Building

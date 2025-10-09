@@ -24,13 +24,13 @@ export default function Navbar() {
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
             <Link 
-              href="/coming-soon" 
+              href="/playbooks" 
               className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
             >
               My Playbooks
             </Link>
             <Link 
-              href="/coming-soon" 
+              href="/marketplace" 
               className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
             >
               Marketplace

@@ -13,9 +13,28 @@ const nextConfig = {
           fullySpecified: false,
         },
       });
+      
+      // Optimize chunk splitting for Clerk
+      config.optimization.splitChunks = {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...config.optimization.splitChunks.cacheGroups,
+          clerk: {
+            test: /[\\/]node_modules[\\/]@clerk[\\/]/,
+            name: 'clerk',
+            chunks: 'all',
+            priority: 10,
+          },
+        },
+      };
     }
     
     return config;
+  },
+  
+  // Experimental features for better chunk loading
+  experimental: {
+    optimizePackageImports: ['@clerk/nextjs'],
   },
 };
 

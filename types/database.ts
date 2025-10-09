@@ -163,6 +163,97 @@ export type Database = {
         }
         Relationships: []
       }
+      collaborators: {
+        Row: {
+          id: string
+          playbook_id: string
+          user_id: string
+          user_email: string
+          user_name: string | null
+          permission_level: 'owner' | 'edit' | 'view'
+          invited_by: string
+          invited_at: string
+          accepted_at: string | null
+          status: 'pending' | 'accepted' | 'declined'
+        }
+        Insert: {
+          id?: string
+          playbook_id: string
+          user_id: string
+          user_email: string
+          user_name?: string | null
+          permission_level: 'owner' | 'edit' | 'view'
+          invited_by: string
+          invited_at?: string
+          accepted_at?: string | null
+          status?: 'pending' | 'accepted' | 'declined'
+        }
+        Update: {
+          id?: string
+          playbook_id?: string
+          user_id?: string
+          user_email?: string
+          user_name?: string | null
+          permission_level?: 'owner' | 'edit' | 'view'
+          invited_by?: string
+          invited_at?: string
+          accepted_at?: string | null
+          status?: 'pending' | 'accepted' | 'declined'
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collaborators_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      chat_messages: {
+        Row: {
+          id: string
+          playbook_id: string
+          user_id: string
+          user_name: string
+          user_avatar: string | null
+          message: string
+          created_at: string
+          edited_at: string | null
+          deleted: boolean
+        }
+        Insert: {
+          id?: string
+          playbook_id: string
+          user_id: string
+          user_name: string
+          user_avatar?: string | null
+          message: string
+          created_at?: string
+          edited_at?: string | null
+          deleted?: boolean
+        }
+        Update: {
+          id?: string
+          playbook_id?: string
+          user_id?: string
+          user_name?: string
+          user_avatar?: string | null
+          message?: string
+          created_at?: string
+          edited_at?: string | null
+          deleted?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -183,6 +274,54 @@ export type Database = {
           created_at: string
           updated_at: string
           permission: string
+        }[]
+      }
+      invite_collaborator: {
+        Args: {
+          p_playbook_id: string
+          p_user_email: string
+          p_user_name: string
+          p_permission_level: string
+        }
+        Returns: string
+      }
+      accept_collaboration: {
+        Args: {
+          p_collaborator_id: string
+        }
+        Returns: boolean
+      }
+      get_playbook_collaborators: {
+        Args: {
+          p_playbook_id: string
+        }
+        Returns: {
+          id: string
+          user_id: string
+          user_email: string
+          user_name: string | null
+          permission_level: string
+          invited_by: string
+          invited_at: string
+          accepted_at: string | null
+          status: string
+        }[]
+      }
+      get_playbook_chat_messages: {
+        Args: {
+          p_playbook_id: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: {
+          id: string
+          user_id: string
+          user_name: string
+          user_avatar: string | null
+          message: string
+          created_at: string
+          edited_at: string | null
+          deleted: boolean
         }[]
       }
     }
@@ -294,9 +433,19 @@ export type UserProfile = Tables<'user_profiles'>
 export type UserProfileInsert = TablesInsert<'user_profiles'>
 export type UserProfileUpdate = TablesUpdate<'user_profiles'>
 
+export type Collaborator = Tables<'collaborators'>
+export type CollaboratorInsert = TablesInsert<'collaborators'>
+export type CollaboratorUpdate = TablesUpdate<'collaborators'>
+
+export type ChatMessage = Tables<'chat_messages'>
+export type ChatMessageInsert = TablesInsert<'chat_messages'>
+export type ChatMessageUpdate = TablesUpdate<'chat_messages'>
+
 // Extended types with relationships
 export type PlaybookWithDetails = Playbook & {
   collaborators?: PlaybookCollaborator[]
+  new_collaborators?: Collaborator[]
+  chat_messages?: ChatMessage[]
   executions?: PlaybookExecution[]
   owner_profile?: UserProfile
 }
@@ -308,6 +457,8 @@ export type PlaybookExecutionWithDetails = PlaybookExecution & {
 
 // Permission types
 export type Permission = 'read' | 'write' | 'admin'
+export type CollaborationPermission = 'owner' | 'edit' | 'view'
+export type CollaborationStatus = 'pending' | 'accepted' | 'declined'
 export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
 // Playbook content structure (can be extended)
@@ -325,6 +476,23 @@ export interface PlaybookStep {
   content: any
   config?: Record<string, any>
   next_step_id?: string | null
+}
+
+// Collaboration-specific types
+export interface CollaborationInvite {
+  playbookId: string
+  userEmail: string
+  userName: string
+  permissionLevel: CollaborationPermission
+}
+
+export interface ChatMessageWithUser extends ChatMessage {
+  user_profile?: UserProfile
+}
+
+export interface CollaboratorWithProfile extends Collaborator {
+  user_profile?: UserProfile
+  inviter_profile?: UserProfile
 }
 
 // API Response types

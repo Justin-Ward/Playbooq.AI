@@ -1,120 +1,163 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
-import Link from 'next/link'
-import { 
-  Lock, 
-  Store, 
-  Heart, 
-  Plus, 
-  ChevronDown, 
+import {
+  ChevronLeft,
   ChevronRight,
-  MoreHorizontal,
-  Upload,
-  X,
-  MessageCircle,
-  PanelLeftClose,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Star,
+  StarOff,
+  Users,
   PanelLeftOpen,
+  PanelLeftClose,
+  PanelRightOpen,
   PanelRightClose,
-  PanelRightOpen
+  Save,
+  Lock,
+  AlertCircle,
 } from 'lucide-react'
 import PlaybookEditor, { extractTableOfContents } from '@/components/PlaybookEditor'
 import PlaybookGenerator from '@/components/PlaybookGenerator'
-import { UploadedFile } from '@/types/api'
-
-// Types
-interface Playbook {
-  id: string
-  title: string
-  lastEdited: Date
-  category: 'private' | 'marketplace' | 'favorited'
-  isSelected?: boolean
-}
-
-interface TableOfContentsItem {
-  id: string
-  title: string
-  level: number
-  sectionNumber: string
-}
-
-
+import PlaybookSidebar from '@/components/PlaybookSidebar'
+import CollaboratorsModal from '@/components/CollaboratorsModal'
+import LoadingSkeleton from '@/components/LoadingSkeleton'
+import { useEnhancedPlaybookManager } from '@/lib/hooks/useEnhancedPlaybookManager'
+import { useGeneratePlaybook } from '@/lib/hooks/useGeneratePlaybook'
+import { LocalPlaybookService } from '@/lib/services/localPlaybookService'
+import Link from 'next/link'
 
 export default function PlaybooksPage() {
-  const { user, isLoaded } = useUser()
+  const { user, isLoaded: isUserLoaded } = useUser()
+  const {
+    playbookList,
+    currentPlaybook,
+    loadPlaybook,
+    savePlaybook,
+    deletePlaybook,
+    duplicatePlaybook,
+    createNewPlaybook,
+    isAuthenticated,
+    tempPlaybookCount,
+    canCreateMore,
+    isLoading,
+    error,
+    clearError,
+    isSaving,
+    lastSaved,
+    updateContent,
+    updateTitle,
+  } = useEnhancedPlaybookManager()
+
+  const {
+    generatePlaybook,
+    isGenerating,
+  } = useGeneratePlaybook()
+
+  const [editorContent, setEditorContent] = useState<string>('')
+  const [playbookTitle, setPlaybookTitle] = useState('Untitled Playbook')
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
-  const [selectedPlaybook, setSelectedPlaybook] = useState<string | null>(null)
   const [aiGenerationExpanded, setAiGenerationExpanded] = useState(true)
-  const [playbookTitle, setPlaybookTitle] = useState('Untitled Playbook')
-  const [editorContent, setEditorContent] = useState('')
-  const [tableOfContents, setTableOfContents] = useState<TableOfContentsItem[]>([])
-  const [isInMarketplace, setIsInMarketplace] = useState(false)
-  const [trackChangesEnabled, setTrackChangesEnabled] = useState(false)
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [tableOfContentsExpanded, setTableOfContentsExpanded] = useState(true)
-  const titleTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false)
+  const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
+  const [tableOfContents, setTableOfContents] = useState<Array<{ id: string; title: string; level: number; sectionNumber: string }>>([])
 
-  // Sample data - replace with real data later
-  const samplePlaybooks: Playbook[] = [
-    { id: '1', title: 'Digital Marketing Strategy', lastEdited: new Date(Date.now() - 2 * 60 * 60 * 1000), category: 'private' },
-    { id: '2', title: 'Employee Onboarding Process', lastEdited: new Date(Date.now() - 24 * 60 * 60 * 1000), category: 'marketplace' },
-    { id: '3', title: 'Product Launch Checklist', lastEdited: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), category: 'favorited' },
-  ]
+  const titleInputRef = useRef<HTMLInputElement>(null)
 
-  const sampleTOC: TableOfContentsItem[] = [
-    { id: '1', title: 'Introduction', level: 1, sectionNumber: '1' },
-    { id: '2', title: 'Getting Started', level: 2, sectionNumber: '1.1' },
-    { id: '3', title: 'Prerequisites', level: 2, sectionNumber: '1.2' },
-    { id: '4', title: 'Implementation', level: 1, sectionNumber: '2' },
-    { id: '5', title: 'Best Practices', level: 2, sectionNumber: '2.1' },
-  ]
-
-  // Auto-resize textarea function
-  const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
-    textarea.style.height = 'auto'
-    textarea.style.height = Math.max(textarea.scrollHeight, 48) + 'px'
-  }
-
-  // Effect to auto-resize when title changes
   useEffect(() => {
-    if (titleTextareaRef.current) {
-      autoResizeTextarea(titleTextareaRef.current)
+    if (currentPlaybook) {
+      setEditorContent(currentPlaybook.content || '')
+      setPlaybookTitle(currentPlaybook.title || 'Untitled Playbook')
+      
+      // Update table of contents when loading a playbook
+      const toc = extractTableOfContents(currentPlaybook.content || '')
+      setTableOfContents(toc)
+    } else {
+      setEditorContent('')
+      setPlaybookTitle('Untitled Playbook')
+      setTableOfContents([])
     }
-  }, [playbookTitle])
+  }, [currentPlaybook])
 
-  const formatRelativeTime = (date: Date) => {
-    const now = new Date()
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
-    
-    if (diffInHours < 1) return 'Just now'
-    if (diffInHours < 24) return `${diffInHours} hours ago`
-    if (diffInHours < 48) return 'Yesterday'
-    const diffInDays = Math.floor(diffInHours / 24)
-    return `${diffInDays} days ago`
-  }
-
-
-  // Editor handlers
-  const handleEditorChange = (content: string) => {
+  const handleEditorChange = useCallback((content: string) => {
     setEditorContent(content)
+    updateContent(content)
+    
+    // Update table of contents
     const toc = extractTableOfContents(content)
     setTableOfContents(toc)
-    setLastSaved(new Date())
-  }
+  }, [updateContent])
 
-  const handleSelectionChange = (selection: any) => {
-    // This can be used to sync with right sidebar metadata
-    console.log('Selection changed:', selection)
-  }
+  const handleTitleChange = useCallback((title: string) => {
+    setPlaybookTitle(title)
+    updateTitle(title)
+  }, [updateTitle])
 
-  // Scroll to heading function
-  const scrollToHeading = (headingTitle: string) => {
+  const handlePlaybookGenerated = useCallback(async (generatedResponse: any) => {
+    console.log('Playbook generated response:', generatedResponse)
+    console.log('User authenticated:', !!user, 'User ID:', user?.id)
+    
+    // Handle both string content (legacy) and response object (new)
+    const content = typeof generatedResponse === 'string' 
+      ? generatedResponse 
+      : generatedResponse.content
+    
+    const title = typeof generatedResponse === 'string' 
+      ? 'Generated Playbook' 
+      : generatedResponse.title
+    
+    console.log('Content type:', typeof content)
+    console.log('Content preview:', typeof content === 'string' ? content.substring(0, 100) : JSON.stringify(content).substring(0, 100))
+    
+    if (content) {
+      // Create a new playbook first
+      try {
+        console.log('Creating new playbook with title:', title, 'Content length:', content.length)
+        
+        const newPlaybook = await savePlaybook({
+          title: title || 'Generated Playbook',
+          content: content,
+          is_public: false
+        })
+        
+        console.log('New playbook created:', newPlaybook.id, 'Is temp?', newPlaybook.id ? LocalPlaybookService.isTempPlaybook(newPlaybook.id) : 'No ID')
+        
+        // Set the new playbook as current
+        setEditorContent(content)
+        setPlaybookTitle(title || 'Generated Playbook')
+        
+        // Update table of contents
+        const toc = extractTableOfContents(content)
+        setTableOfContents(toc)
+        
+        console.log('Playbook set as current, editor content and title updated')
+      } catch (error) {
+        console.error('Error creating new playbook:', error)
+        // Fallback: just set the content without saving
+        setEditorContent(content)
+        setPlaybookTitle(title || 'Generated Playbook')
+        
+        // Update table of contents
+        const toc = extractTableOfContents(content)
+        setTableOfContents(toc)
+      }
+    }
+  }, [savePlaybook, user])
+
+  const handleNewPlaybook = useCallback(() => {
+    createNewPlaybook()
+  }, [createNewPlaybook])
+
+  const scrollToHeading = useCallback((headingText: string) => {
     try {
       // Find the editor content area
       const editorContainer = document.querySelector('.ProseMirror')
-      if (!editorContainer) return
+      const editorScrollWrapper = document.querySelector('.editor-content-scroll-wrapper')
+      
+      if (!editorContainer || !editorScrollWrapper) return
 
       // Find all headings in the editor
       const headings = editorContainer.querySelectorAll('h1, h2, h3, h4, h5, h6')
@@ -122,18 +165,31 @@ export default function PlaybooksPage() {
       // Find the heading that matches the title
       let targetHeading: Element | null = null
       headings.forEach(heading => {
-        if (heading.textContent?.trim() === headingTitle.trim()) {
+        if (heading.textContent?.trim() === headingText.trim()) {
           targetHeading = heading
         }
       })
 
       if (targetHeading) {
         const headingElement = targetHeading as HTMLElement
-        // Scroll the heading into view with smooth behavior
-        headingElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start',
-          inline: 'nearest'
+        const scrollWrapper = editorScrollWrapper as HTMLElement
+        
+        // Calculate the position of the heading relative to the scroll wrapper
+        const headingRect = headingElement.getBoundingClientRect()
+        const wrapperRect = scrollWrapper.getBoundingClientRect()
+        
+        // Calculate how much to scroll within the wrapper
+        const relativeTop = headingRect.top - wrapperRect.top
+        const currentScrollTop = scrollWrapper.scrollTop
+        
+        // Scroll to the heading with some padding from the top
+        const padding = 20 // 20px padding from the top
+        const targetScrollTop = currentScrollTop + relativeTop - padding
+        
+        // Smooth scroll within the editor content area only
+        scrollWrapper.scrollTo({
+          top: targetScrollTop,
+          behavior: 'smooth'
         })
         
         // Add a temporary highlight effect
@@ -145,631 +201,253 @@ export default function PlaybooksPage() {
     } catch (error) {
       console.error('Error scrolling to heading:', error)
     }
-  }
+  }, [])
 
-  // Toolbar action handlers
-  const handleExportPDF = () => {
-    try {
-      // Get the HTML content from the editor
-      const editorElement = document.querySelector('.ProseMirror')
-      const htmlContent = editorElement ? editorElement.innerHTML : '<p>No content to export</p>'
-      
-      // Create a styled HTML document for printing
-      const fullHtmlContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <title>${playbookTitle}</title>
-            <style>
-              body { 
-                font-family: Arial, sans-serif; 
-                margin: 40px; 
-                line-height: 1.6; 
-                color: #333;
-              }
-              h1 { 
-                color: #333; 
-                border-bottom: 2px solid #333; 
-                padding-bottom: 10px; 
-                margin-bottom: 30px;
-              }
-              h2 { 
-                color: #555; 
-                margin-top: 30px; 
-                margin-bottom: 15px;
-              }
-              h3 { 
-                color: #666; 
-                margin-top: 20px; 
-                margin-bottom: 10px;
-              }
-              p { margin: 10px 0; }
-              ul, ol { margin: 10px 0; padding-left: 30px; }
-              blockquote { 
-                border-left: 4px solid #ddd; 
-                padding-left: 20px; 
-                margin: 20px 0; 
-                font-style: italic; 
-                background-color: #f9f9f9;
-                padding: 15px 20px;
-              }
-              .note { 
-                background-color: #fef3c7; 
-                padding: 15px; 
-                border-radius: 5px; 
-                margin: 15px 0; 
-                border-left: 4px solid #f59e0b;
-              }
-              mark {
-                background-color: #fef3c7;
-                padding: 2px 4px;
-                border-radius: 3px;
-              }
-              @media print {
-                body { margin: 20px; }
-                .no-print { display: none; }
-              }
-            </style>
-          </head>
-          <body>
-            <h1>${playbookTitle}</h1>
-            <div class="content">
-              ${htmlContent}
-            </div>
-          </body>
-        </html>
-      `
-      
-      // Create a new window with the content and trigger print
-      const printWindow = window.open('', '_blank')
-      if (printWindow) {
-        printWindow.document.write(fullHtmlContent)
-        printWindow.document.close()
-        printWindow.focus()
-        
-        // Wait for content to load, then trigger print
-        setTimeout(() => {
-          printWindow.print()
-          // Keep window open for a moment in case user wants to save as PDF
-          setTimeout(() => {
-            printWindow.close()
-          }, 1000)
-        }, 500)
-      }
-    } catch (error) {
-      console.error('Error exporting PDF:', error)
-      alert('Error exporting to PDF. Please try again.')
+  // Debugging for Manage Collaborators button
+  useEffect(() => {
+    console.log('PlaybooksPage mounted/updated. user:', user, 'isLoaded:', isUserLoaded);
+    if (!user) {
+      console.warn('User is not authenticated. Manage Collaborators button will be disabled.');
     }
-  }
-
-  const handleOpenVersions = () => {
-    // Create a simple version history modal
-    const modal = document.createElement('div')
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
-    modal.innerHTML = `
-      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 class="text-lg font-semibold mb-4">Version History</h3>
-        <div class="space-y-2">
-          <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-            <span class="text-sm">Current Version</span>
-            <span class="text-xs text-gray-500">Just now</span>
-          </div>
-          <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-            <span class="text-sm">Version 1.1</span>
-            <span class="text-xs text-gray-500">2 hours ago</span>
-          </div>
-          <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-            <span class="text-sm">Version 1.0</span>
-            <span class="text-xs text-gray-500">Yesterday</span>
-          </div>
-        </div>
-        <div class="mt-4 flex justify-end">
-          <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
-            Close
-          </button>
-        </div>
-      </div>
-    `
-    document.body.appendChild(modal)
-    
-    // Close modal when clicking outside
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        modal.remove()
-      }
-    })
-  }
-
-  const handleDuplicatePlaybook = () => {
-    const newTitle = `${playbookTitle} (Copy)`
-    const newContent = editorContent
-    
-    // Update the current playbook with duplicated content
-    setPlaybookTitle(newTitle)
-    setEditorContent(newContent)
-    setLastSaved(new Date())
-    
-    alert(`Playbook duplicated as "${newTitle}"`)
-  }
-
-  const handleToggleMarketplace = () => {
-    const newMarketplaceStatus = !isInMarketplace
-    setIsInMarketplace(newMarketplaceStatus)
-    
-    if (newMarketplaceStatus) {
-      // Show marketplace settings modal
-      const modal = document.createElement('div')
-      modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
-      modal.innerHTML = `
-        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-          <h3 class="text-lg font-semibold mb-4">Add to Marketplace</h3>
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium mb-2">Price (USD)</label>
-              <input type="number" placeholder="0.00" class="w-full border border-gray-300 rounded px-3 py-2" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-2">Description</label>
-              <textarea placeholder="Describe your playbook..." class="w-full border border-gray-300 rounded px-3 py-2 h-20"></textarea>
-            </div>
-            <div>
-              <label class="flex items-center">
-                <input type="checkbox" class="mr-2" />
-                <span class="text-sm">Make this playbook public</span>
-              </label>
-            </div>
-          </div>
-          <div class="mt-6 flex justify-end space-x-2">
-            <button onclick="this.closest('.fixed').remove(); setIsInMarketplace(false)" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
-              Cancel
-            </button>
-            <button onclick="this.closest('.fixed').remove(); alert('Playbook added to marketplace!')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-              Add to Marketplace
-            </button>
-          </div>
-        </div>
-      `
-      document.body.appendChild(modal)
-      
-      // Close modal when clicking outside
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          modal.remove()
-          setIsInMarketplace(false)
-        }
-      })
-    } else {
-      // Show marketplace settings
-      const modal = document.createElement('div')
-      modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
-      modal.innerHTML = `
-        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-          <h3 class="text-lg font-semibold mb-4">Marketplace Settings</h3>
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium mb-2">Current Price</label>
-              <input type="number" value="9.99" class="w-full border border-gray-300 rounded px-3 py-2" />
-            </div>
-            <div>
-              <label class="block text-sm font-medium mb-2">Status</label>
-              <select class="w-full border border-gray-300 rounded px-3 py-2">
-                <option>Published</option>
-                <option>Draft</option>
-                <option>Unpublished</option>
-              </select>
-            </div>
-            <div>
-              <label class="flex items-center">
-                <input type="checkbox" checked class="mr-2" />
-                <span class="text-sm">Visible in marketplace</span>
-              </label>
-            </div>
-          </div>
-          <div class="mt-6 flex justify-end space-x-2">
-            <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
-              Close
-            </button>
-            <button onclick="this.closest('.fixed').remove(); alert('Settings updated!')" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-              Save Changes
-            </button>
-          </div>
-        </div>
-      `
-      document.body.appendChild(modal)
-      
-      // Close modal when clicking outside
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          modal.remove()
-        }
-      })
-    }
-  }
-
-  const handleToggleTrackChanges = () => {
-    const newTrackChangesStatus = !trackChangesEnabled
-    setTrackChangesEnabled(newTrackChangesStatus)
-    
-    // Visual feedback for track changes
-    if (newTrackChangesStatus) {
-      alert('Track Changes enabled - your edits will be highlighted')
-    } else {
-      alert('Track Changes disabled')
-    }
-  }
-
-  // Handler for when a playbook is generated by AI
-  const handlePlaybookGenerated = (generatedPlaybook: any) => {
-    // Update the editor content with the generated playbook
-    setEditorContent(JSON.stringify(generatedPlaybook.content))
-    
-    // Update the playbook title
-    if (generatedPlaybook.title) {
-      setPlaybookTitle(generatedPlaybook.title)
-    }
-    
-    // Update the table of contents
-    if (generatedPlaybook.sections) {
-      const toc = generatedPlaybook.sections.map((section: any, index: number) => ({
-        id: section.id || `section-${index}`,
-        title: section.title,
-        level: section.level || 1,
-        sectionNumber: `${index + 1}`
-      }))
-      setTableOfContents(toc)
-    }
-    
-    // Update last saved timestamp
-    setLastSaved(new Date())
-    
-    console.log('Generated playbook:', generatedPlaybook)
-  }
-
-  if (!isLoaded) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        Loading user data...
-      </div>
-    )
-  }
+  }, [user, isUserLoaded]);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {/* Main Layout Container */}
-      <div className="flex-1 flex overflow-hidden">
-        
-        {/* Left Sidebar */}
-        <div className={`bg-white border-r border-gray-200 transition-all duration-300 ${
-          leftSidebarCollapsed ? 'w-0' : 'w-80'
-        } flex flex-col relative`}>
-          {!leftSidebarCollapsed && (
-            <>
-              {/* Sidebar Header */}
-              <div className="p-4 border-b border-gray-200">
-                {/* Logo and Marketplace Navigation */}
-                <div className="flex items-center gap-4 mb-4">
-                  <Link href="/" className="text-blue-600 font-bold text-lg hover:text-blue-700 transition-colors">
-                    Playbooq.AI
-                  </Link>
-                  <div className="h-4 w-px bg-gray-300"></div>
-                  <Link href="/marketplace" className="text-gray-700 hover:text-gray-900 transition-colors">
-                    Marketplace
-                  </Link>
-                </div>
-                
-                {/* Divider */}
-                <div className="h-px bg-gray-200 mb-4"></div>
-                
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900">My Playbooks</h2>
-                </div>
-                
-                <button className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  New Playbook
-                </button>
-              </div>
-
-              {/* Playbook Categories */}
-              <div className="flex-1 overflow-y-auto">
-                <PlaybookCategory
-                  title="Not in the marketplace"
-                  icon={<Lock className="h-4 w-4" />}
-                  playbooks={samplePlaybooks.filter(p => p.category === 'private')}
-                  selectedPlaybook={selectedPlaybook}
-                  onSelectPlaybook={setSelectedPlaybook}
-                  formatRelativeTime={formatRelativeTime}
-                />
-                <PlaybookCategory
-                  title="In the marketplace"
-                  icon={<Store className="h-4 w-4" />}
-                  playbooks={samplePlaybooks.filter(p => p.category === 'marketplace')}
-                  selectedPlaybook={selectedPlaybook}
-                  onSelectPlaybook={setSelectedPlaybook}
-                  formatRelativeTime={formatRelativeTime}
-                />
-                <PlaybookCategory
-                  title="Favorites from marketplace"
-                  icon={<Heart className="h-4 w-4" />}
-                  playbooks={samplePlaybooks.filter(p => p.category === 'favorited')}
-                  selectedPlaybook={selectedPlaybook}
-                  onSelectPlaybook={setSelectedPlaybook}
-                  formatRelativeTime={formatRelativeTime}
-                />
-              </div>
-
-              {/* Table of Contents */}
-              <div className="border-t border-gray-200 p-4 flex flex-col">
-                <button
-                  onClick={() => setTableOfContentsExpanded(!tableOfContentsExpanded)}
-                  className="flex items-center gap-2 text-sm font-semibold text-gray-900 mb-3 hover:text-gray-700 w-full text-left"
-                >
-                  {tableOfContentsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                  Table of Contents
-                </button>
-                {tableOfContentsExpanded && (
-                  <div className="flex-1 overflow-y-auto max-h-60 space-y-1 toc-scroll">
-                    {tableOfContents.length > 0 ? (
-                      tableOfContents.map((item, index) => (
-                        <div
-                          key={item.id}
-                          onClick={() => scrollToHeading(item.title)}
-                          className={`text-sm text-gray-600 hover:text-gray-900 cursor-pointer p-1 hover:bg-gray-50 rounded transition-colors ${
-                            item.level === 1 ? 'font-medium' : item.level === 2 ? 'ml-2' : 'ml-4'
-                          }`}
-                          title={`Jump to ${item.title}`}
-                        >
-                          <span className="text-gray-400 mr-2">
-                            {item.sectionNumber}.
-                          </span>
-                          {item.title}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-xs text-gray-400 italic">
-                        Add headings to see table of contents
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-          
-          {/* Left Sidebar Collapse Button */}
-          {!leftSidebarCollapsed && (
-            <button
-              onClick={() => setLeftSidebarCollapsed(true)}
-              className="absolute top-1/2 -translate-y-1/2 right-0 w-6 h-8 bg-white border-r border-gray-200 flex items-center justify-center hover:bg-gray-50 -mr-6 z-10"
-              title="Collapse sidebar"
-            >
-              <PanelLeftClose className="h-4 w-4 text-gray-500" />
-            </button>
-          )}
-        </div>
-
-        {/* Collapsed Left Sidebar Button */}
-        {leftSidebarCollapsed && (
-          <button
-            onClick={() => setLeftSidebarCollapsed(false)}
-            className="w-10 bg-white border-r border-gray-200 flex items-center justify-center hover:bg-gray-50"
-          >
-            <PanelLeftOpen className="h-4 w-4 text-gray-500" />
-          </button>
+    <>
+      <div className="h-screen bg-gray-50 flex overflow-hidden">
+        {/* Left Sidebar - Playbook List */}
+        {!leftSidebarCollapsed && (
+          <div className="w-80 flex-shrink-0 h-full overflow-hidden">
+            <PlaybookSidebar
+              onPlaybookSelect={(playbook) => loadPlaybook(playbook.id)}
+              onNewPlaybook={handleNewPlaybook}
+              isAuthenticated={isAuthenticated}
+              tempPlaybookCount={tempPlaybookCount}
+              canCreateMore={canCreateMore}
+              playbookList={playbookList}
+              isLoading={isLoading}
+              error={error}
+              loadPlaybook={loadPlaybook}
+              deletePlaybook={deletePlaybook}
+              duplicatePlaybook={duplicatePlaybook}
+              searchPlaybooks={async (query) => { }}
+              refreshPlaybookList={async () => { }}
+              clearError={clearError}
+              tableOfContents={tableOfContents}
+              onScrollToHeading={scrollToHeading}
+            />
+          </div>
         )}
 
-        {/* Main Editor Area */}
-        <div className="flex-1 flex flex-col bg-white overflow-hidden">
-          
-          {/* Playbook Title Section */}
-          <div className="border-b border-gray-200 p-4 bg-white">
-            <div className="max-w-4xl mx-auto">
-              <textarea
-                ref={titleTextareaRef}
-                value={playbookTitle}
-                onChange={(e) => {
-                  setPlaybookTitle(e.target.value)
-                  // Auto-resize immediately
-                  if (titleTextareaRef.current) {
-                    autoResizeTextarea(titleTextareaRef.current)
-                  }
-                }}
-                className="w-full text-2xl font-bold text-gray-900 bg-transparent border-none outline-none focus:ring-0 placeholder-gray-400 resize-none overflow-hidden min-h-[3rem] leading-tight"
-                placeholder="Enter playbook title..."
-                rows={1}
-                onInput={(e) => {
-                  const target = e.target as HTMLTextAreaElement
-                  autoResizeTextarea(target)
-                }}
-              />
-            </div>
-          </div>
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col min-w-0 h-full">
+          {/* Top Bar */}
+          <div className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
+                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  {leftSidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                </button>
 
-          {/* Editor Toolbar - Fixed */}
-          <div className="sticky top-0 z-30 bg-white border-b border-gray-200">
-            <div className="max-w-4xl mx-auto">
-              <PlaybookEditor
-                content={editorContent}
-                onChange={handleEditorChange}
-                editable={true}
-                placeholder="Start typing your playbook here, or use the AI generation in the right sidebar to get started..."
-                onSelectionChange={handleSelectionChange}
-                className="shadow-sm border-0 rounded-none"
-                onExportPDF={handleExportPDF}
-                onOpenVersions={handleOpenVersions}
-                onDuplicatePlaybook={handleDuplicatePlaybook}
-                onToggleMarketplace={handleToggleMarketplace}
-                isInMarketplace={isInMarketplace}
-                isSaving={false}
-                lastSaved={lastSaved}
-                trackChangesEnabled={trackChangesEnabled}
-                onToggleTrackChanges={handleToggleTrackChanges}
-                showToolbarOnly={true}
-              />
-            </div>
-          </div>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-gray-400" />
+                  <input
+                    ref={titleInputRef}
+                    type="text"
+                    value={playbookTitle}
+                    onChange={(e) => handleTitleChange(e.target.value)}
+                    className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0"
+                  />
+                </div>
+              </div>
 
-          {/* Saved Status Bar - Fixed */}
-          <div className="sticky top-14 z-30 bg-white border-b border-gray-200 px-4 py-2">
-            <div className="max-w-4xl mx-auto">
-              <div className="flex justify-end">
-                <div className="text-xs text-gray-500 flex items-center gap-2">
-                  {lastSaved ? (
+              <div className="flex items-center gap-2">
+                {/* Save Status */}
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  {isSaving ? (
+                    <span className="text-xs text-gray-500">Saving...</span>
+                  ) : lastSaved ? (
                     <>
                       <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                      Saved ✓
+                      <span>Saved</span>
                     </>
-                  ) : (
-                    <>
-                      <div className="h-3 w-3 rounded-full bg-gray-300"></div>
-                      Not saved
-                    </>
-                  )}
+                  ) : null}
                 </div>
+                <button
+                  onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
+                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  {rightSidebarCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Rich Text Editor Workspace - Scrollable */}
-          <div className="flex-1 p-4 overflow-y-auto">
-            <div className="max-w-4xl mx-auto">
+          {/* Rich Text Editor Content Area */}
+          <div className="flex-1 flex flex-col overflow-y-auto min-h-0 editor-content-scroll-wrapper">
+            {isLoading ? (
+              <LoadingSkeleton type="editor" />
+            ) : (
               <PlaybookEditor
                 content={editorContent}
                 onChange={handleEditorChange}
                 editable={true}
                 placeholder="Start typing your playbook here, or use the AI generation in the right sidebar to get started..."
-                onSelectionChange={handleSelectionChange}
-                className="shadow-sm border-0 rounded-none"
-                onExportPDF={handleExportPDF}
-                onOpenVersions={handleOpenVersions}
-                onDuplicatePlaybook={handleDuplicatePlaybook}
-                onToggleMarketplace={handleToggleMarketplace}
-                isInMarketplace={isInMarketplace}
-                isSaving={false}
-                lastSaved={lastSaved}
-                trackChangesEnabled={trackChangesEnabled}
-                onToggleTrackChanges={handleToggleTrackChanges}
-                showContentOnly={true}
+                className="flex-1 flex flex-col"
               />
-            </div>
+            )}
           </div>
         </div>
 
         {/* Right Sidebar */}
-        <div className={`bg-white border-l border-gray-200 transition-all duration-300 ${
-          rightSidebarCollapsed ? 'w-0' : 'w-80'
-        } flex flex-col relative`}>
-          {!rightSidebarCollapsed && (
-            <>
-              {/* AI Generation Section */}
-              <div className={`${aiGenerationExpanded ? 'flex-[2]' : 'flex-none'} border-b border-gray-200 overflow-y-auto`}>
-                <div className="p-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <button
-                      onClick={() => setAiGenerationExpanded(!aiGenerationExpanded)}
-                      className="flex items-center gap-2 text-sm font-semibold text-gray-900 hover:text-gray-700"
-                    >
-                      {aiGenerationExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                      Generate with AI
-                    </button>
-                  </div>
-                  
-                  {aiGenerationExpanded && (
-                    <PlaybookGenerator
-                      onPlaybookGenerated={handlePlaybookGenerated}
-                      existingContent={editorContent}
-                    />
-                  )}
+        {!rightSidebarCollapsed && (
+          <div className="w-80 flex-shrink-0 bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden">
+            {/* AI Generation */}
+            <div className="flex-1 flex flex-col min-h-0">
+              <button
+                onClick={() => setAiGenerationExpanded(!aiGenerationExpanded)}
+                className="p-3 border-b border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors flex-shrink-0"
+              >
+                <h3 className="text-sm font-semibold text-gray-900">Generate with AI</h3>
+                {aiGenerationExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-gray-500" />
+                )}
+              </button>
+
+              {aiGenerationExpanded && (
+                <div className="flex-1 p-3 overflow-y-auto min-h-0">
+                  <PlaybookGenerator
+                    onPlaybookGenerated={handlePlaybookGenerated}
+                    existingContent={editorContent}
+                  />
                 </div>
+              )}
+            </div>
+
+            {/* Collaborators Management Section */}
+            <div className="border-t border-gray-200 flex-shrink-0">
+              <button
+                onClick={() => {
+                  console.log('Manage Collaborators clicked, isAuthenticated:', !!user, 'user:', user)
+                  setShowCollaboratorsModal(true)
+                }}
+                className="w-full p-3 flex items-center justify-between hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!user}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="p-1 bg-blue-100 rounded">
+                    <Users className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-gray-900">Manage Collaborators</h3>
+                </div>
+                <ChevronRight className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Chat Section */}
+            <div className="border-t border-gray-200 flex-shrink-0">
+              <div className="p-3 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-900">Collaborator Chat</h3>
               </div>
 
-              {/* Chat Section */}
-              <div className="flex-1 flex flex-col">
-                <div className="p-3 border-b border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-900">Collaborator Chat</h3>
-                </div>
-                
-                <div className="flex-1 p-3 bg-gray-50">
-                  <div className="text-xs text-gray-500 text-center">
-                    Chat functionality coming soon...
-                  </div>
+              <div className="p-3 bg-gray-50 min-h-[120px]">
+                <div className="text-xs text-gray-500 text-center">
+                  Chat functionality coming soon
                 </div>
               </div>
-            </>
-          )}
-          
-          {/* Right Sidebar Collapse Button */}
-          {!rightSidebarCollapsed && (
-            <button
-              onClick={() => setRightSidebarCollapsed(true)}
-              className="absolute top-1/2 -translate-y-1/2 left-0 w-6 h-8 bg-white border-l border-gray-200 flex items-center justify-center hover:bg-gray-50 -ml-6 z-10"
-              title="Collapse sidebar"
-            >
-              <PanelRightClose className="h-4 w-4 text-gray-500" />
-            </button>
-          )}
-        </div>
-
-        {/* Collapsed Right Sidebar Button */}
-        {rightSidebarCollapsed && (
-          <button
-            onClick={() => setRightSidebarCollapsed(false)}
-            className="w-10 bg-white border-l border-gray-200 flex items-center justify-center hover:bg-gray-50"
-          >
-            <PanelRightOpen className="h-4 w-4 text-gray-500" />
-          </button>
+            </div>
+          </div>
         )}
       </div>
-    </div>
-  )
-}
 
-// Playbook Category Component
-function PlaybookCategory({ 
-  title, 
-  icon, 
-  playbooks, 
-  selectedPlaybook, 
-  onSelectPlaybook,
-  formatRelativeTime 
-}: {
-  title: string
-  icon: React.ReactNode
-  playbooks: Playbook[]
-  selectedPlaybook: string | null
-  onSelectPlaybook: (id: string) => void
-  formatRelativeTime: (date: Date) => string
-}) {
-  const [expanded, setExpanded] = useState(true)
-
-  return (
-    <div className="px-4 py-2">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900 w-full text-left"
-      >
-        {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        {icon}
-        {title} ({playbooks.length})
-      </button>
-      
-      {expanded && playbooks.length > 0 && (
-        <div className="mt-2 ml-6 space-y-1">
-          {playbooks.map((playbook) => (
-            <button
-              key={playbook.id}
-              onClick={() => onSelectPlaybook(playbook.id)}
-              className={`block w-full text-left text-sm p-2 rounded hover:bg-gray-50 transition-colors ${
-                selectedPlaybook === playbook.id ? 'bg-blue-50 text-blue-700 border-l-2 border-blue-500' : 'text-gray-600'
-              }`}
-            >
-              <div className="font-medium truncate">{playbook.title}</div>
-              <div className="text-xs text-gray-500">{formatRelativeTime(playbook.lastEdited)}</div>
-            </button>
-          ))}
+      {/* Sign In Prompt Modal */}
+      {showSignInPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-blue-100 rounded-full">
+                <Lock className="h-6 w-6 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Sign In Required</h3>
+                <p className="text-sm text-gray-600">You&apos;ve reached the limit of 2 free playbooks</p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-gray-700 mb-3">
+                To create more playbooks and save your work permanently, please sign in:
+              </p>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 bg-green-500 rounded-full"></div>
+                  Create unlimited playbooks
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 bg-green-500 rounded-full"></div>
+                  Share and collaborate
+                </li>
+                <li className="flex items-center gap-2">
+                  <div className="h-1.5 w-1.5 bg-green-500 rounded-full"></div>
+                  Access advanced AI features
+                </li>
+              </ul>
+            </div>
+            
+            <div className="flex gap-3">
+              <Link
+                href="/sign-up"
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Sign Up
+              </Link>
+              <button
+                onClick={() => setShowSignInPrompt(false)}
+                className="px-4 py-2 text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
-    </div>
+
+      {/* Error Toast */}
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg shadow-lg z-50 max-w-sm">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="text-sm font-medium text-red-800">Error</h4>
+              <p className="text-sm text-red-700 mt-1">{error}</p>
+            </div>
+            <button
+              onClick={clearError}
+              className="text-red-400 hover:text-red-600"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Collaborators Modal */}
+      <CollaboratorsModal
+        isOpen={showCollaboratorsModal}
+        onClose={() => {
+          console.log('Closing collaborators modal')
+          setShowCollaboratorsModal(false)
+        }}
+        playbookId={currentPlaybook?.id || ''}
+        playbookTitle={playbookTitle || 'Untitled Playbook'}
+        currentUserId={user?.id || ''}
+        currentUserEmail={user?.primaryEmailAddress?.emailAddress || ''}
+        currentUserName={user?.fullName || user?.firstName || 'User'}
+      />
+    </>
   )
 }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { auth } from '@clerk/nextjs/server'
 import DOMPurify from 'isomorphic-dompurify'
 
 // Initialize Anthropic client
@@ -14,6 +13,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
 }
 
 // Rate limiting storage (in production, use Redis or database)
+// Uses IP addresses as keys since authentication is disabled
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
 
 // Types
@@ -214,17 +214,12 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Authentication check
-    const { userId } = await auth()
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-    
-    // Rate limiting check
-    if (!checkRateLimit(userId)) {
+    // Rate limiting check (using IP address since no auth)
+    const clientIP = request.headers.get('x-forwarded-for') || 
+                     request.headers.get('x-real-ip') || 
+                     request.headers.get('cf-connecting-ip') ||
+                     'anonymous'
+    if (!checkRateLimit(clientIP)) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Maximum 20 playbook generations per hour.' },
         { status: 429 }
@@ -254,7 +249,7 @@ export async function POST(request: NextRequest) {
 2. **Well-Structured**: Use clear hierarchies with H1, H2, H3 headings
 3. **Detailed but Scannable**: Provide depth while maintaining readability
 4. **Comprehensive**: Include best practices, common pitfalls, and pro tips
-5. **Tool-Oriented**: For each step, list required tools/equipment/software
+5. **Tool-Oriented**: For each step, list required tools/equipment/software including listing popular vendors if important
 6. **Purpose-Driven**: For each action, explain the "why" - why each step is necessary
 7. **Actionable**: Always provide clear next steps
 
@@ -267,11 +262,15 @@ export async function POST(request: NextRequest) {
 - Include numbered lists for sequential steps
 - Use bullet points for parallel items or tips
 
-**Content Integration:**
-- If existing content is provided, enhance and expand it rather than replacing
-- Merge redundant content where needed
-- Maintain consistency in tone and structure
-- Build upon previous content to create a cohesive playbook
+**Content Integration (CRITICAL):**
+- If existing content is provided, you MUST preserve ALL existing content without exception
+- NEVER delete, remove, replace, or omit any existing sections, steps, or information
+- Enhance and expand existing content by adding new insights, examples, or details
+- Create new sections for content that doesn't relate to existing sections
+- Merge redundant content intelligently by combining similar points into enhanced versions
+- Maintain consistency in tone and structure throughout
+- Build upon previous content to create a comprehensive, cohesive playbook
+- Think of this as combining two complete playbooks into one comprehensive resource
 
 Your playbooks should be professional, comprehensive, and immediately usable by someone wanting to execute the described process.`
 
@@ -279,8 +278,20 @@ Your playbooks should be professional, comprehensive, and immediately usable by 
     let userPrompt = `Create a comprehensive playbook for: "${sanitizedTopic}"\n\n`
     
     if (existingContent) {
-      userPrompt += `**EXISTING CONTENT TO ENHANCE:**\n${existingContent}\n\n`
-      userPrompt += `Please enhance and expand this existing playbook with additional content. Do not delete any existing content, but do merge redundant information where needed.\n\n`
+      userPrompt += `**EXISTING PLAYBOOK CONTENT (MUST BE PRESERVED):**\n${existingContent}\n\n`
+      userPrompt += `**🚨 CRITICAL REQUIREMENT - ZERO CONTENT DELETION 🚨**\n`
+      userPrompt += `You are FORBIDDEN from deleting, removing, replacing, or omitting ANY content from the existing playbook above. Every single word, section, step, and piece of information MUST be preserved.\n\n`
+      userPrompt += `**Your ONLY allowed actions are:**\n`
+      userPrompt += `1. **ADD NEW SECTIONS** - Create entirely new sections based on document content\n`
+      userPrompt += `2. **EXPAND EXISTING SECTIONS** - Add additional details, examples, or steps to existing sections\n`
+      userPrompt += `3. **INTELLIGENT MERGING** - When document content relates to existing content, enhance the existing content by adding new insights, examples, or details\n`
+      userPrompt += `4. **MAINTAIN ALL EXISTING STRUCTURE** - Keep all existing headings, sections, and organization\n`
+      userPrompt += `5. **PRESERVE ALL EXISTING INFORMATION** - Every bullet point, step, tip, and piece of advice must remain\n\n`
+      userPrompt += `**Think of this as creating a comprehensive playbook that combines TWO separate playbooks:**\n`
+      userPrompt += `- Playbook 1: The existing content (which must remain 100% intact)\n`
+      userPrompt += `- Playbook 2: New content from the uploaded documents\n`
+      userPrompt += `- Final Result: A merged playbook that contains ALL content from both playbooks\n\n`
+      userPrompt += `**Quality Check:** Before submitting your response, verify that every piece of information from the existing playbook is still present in your enhanced version.\n\n`
     }
     
     if (documents.length > 0) {
@@ -295,7 +306,16 @@ Your playbooks should be professional, comprehensive, and immediately usable by 
       userPrompt += `**REGENERATE SECTION:** Please regenerate the section "${regenerateSection.sectionTitle}" with enhanced content.\n\n`
     }
     
-    if (documents.length > 0) {
+    if (existingContent && documents.length > 0) {
+      userPrompt += `**FINAL INSTRUCTION:** Create an enhanced, comprehensive playbook that combines ALL existing content with the new document content. This is essentially merging two complete playbooks into one comprehensive guide.\n\n`
+      userPrompt += `**MANDATORY APPROACH:**\n`
+      userPrompt += `1. **Start with ALL existing content** - Include every section, step, and piece of information from the existing playbook\n`
+      userPrompt += `2. **Add new sections** - Create new sections for content from the documents that doesn't relate to existing content\n`
+      userPrompt += `3. **Enhance existing sections** - When document content relates to existing sections, add the new insights, examples, or details to those sections\n`
+      userPrompt += `4. **Maintain comprehensive coverage** - The final playbook should contain EVERYTHING from both the existing playbook AND the document content\n`
+      userPrompt += `5. **Organize logically** - Structure the combined content in a logical, easy-to-follow format\n\n`
+      userPrompt += `**Remember:** You are creating a comprehensive resource that contains the complete knowledge from both sources. Nothing should be lost or omitted.`
+    } else if (documents.length > 0) {
       userPrompt += `Create a comprehensive, actionable playbook that teaches the specific content from the uploaded documents. Organize the information into logical sections with clear steps, include the techniques and processes described in the documents, and provide practical guidance based on the document content.`
     } else {
       userPrompt += `Please create a comprehensive, actionable playbook that covers all aspects of "${sanitizedTopic}". Include practical steps, required tools, explanations of why each step matters, and actionable next steps.`

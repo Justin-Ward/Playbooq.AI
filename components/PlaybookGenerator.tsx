@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useGeneratePlaybook } from '@/lib/hooks/useGeneratePlaybook'
 import { UploadedFile } from '@/types/api'
 import { Upload, X, Loader2 } from 'lucide-react'
+import { extractPDFText } from '@/lib/pdf-parser'
 
 interface PlaybookGeneratorProps {
   onPlaybookGenerated: (playbook: any) => void
@@ -36,37 +37,63 @@ export default function PlaybookGenerator({
       const fileArray = Array.from(files)
       console.log('Processing files:', fileArray.map(f => ({ name: f.name, type: f.type, size: f.size })))
       
-      // Process files on the server
-      const formData = new FormData()
-      fileArray.forEach(file => {
-        formData.append('files', file)
-      })
+      const newUploadedFiles: UploadedFile[] = []
       
-      console.log('Sending request to /api/process-files')
-      const response = await fetch('/api/process-files', {
-        method: 'POST',
-        body: formData,
-      })
-      
-      console.log('Response status:', response.status)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Response error:', errorText)
-        throw new Error(`Failed to process files: ${response.status} ${errorText}`)
+      // Process each file
+      for (const file of fileArray) {
+        try {
+          let content = ''
+          
+          if (file.type === 'application/pdf') {
+            // Handle PDF files client-side
+            console.log('Processing PDF client-side:', file.name)
+            content = await extractPDFText(file)
+            console.log(`PDF text extracted successfully. Length: ${content.length}`)
+          } else {
+            // Handle other files server-side
+            console.log('Processing non-PDF file server-side:', file.name)
+            const formData = new FormData()
+            formData.append('files', file)
+            
+            const response = await fetch('/api/process-files', {
+              method: 'POST',
+              body: formData,
+            })
+            
+            if (!response.ok) {
+              const errorText = await response.text()
+              throw new Error(`Failed to process file: ${response.status} ${errorText}`)
+            }
+            
+            const processedFiles = await response.json()
+            if (processedFiles.length > 0 && processedFiles[0].content) {
+              content = processedFiles[0].content
+            } else {
+              throw new Error('No content extracted from file')
+            }
+          }
+          
+          newUploadedFiles.push({
+            id: `file-${Date.now()}-${newUploadedFiles.length}`,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            content: content,
+            error: undefined
+          })
+          
+        } catch (fileError) {
+          console.error('Error processing file:', file.name, fileError)
+          newUploadedFiles.push({
+            id: `error-${Date.now()}-${newUploadedFiles.length}`,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            content: '',
+            error: fileError instanceof Error ? fileError.message : 'Failed to process file'
+          })
+        }
       }
-      
-      const processedFiles = await response.json()
-      console.log('Processed files response:', processedFiles)
-      
-      const newUploadedFiles: UploadedFile[] = processedFiles.map((file: any, index: number) => ({
-        id: `file-${Date.now()}-${index}`,
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        content: file.content,
-        error: file.error
-      }))
       
       console.log('New uploaded files:', newUploadedFiles)
       setUploadedFiles(prev => {
@@ -95,6 +122,79 @@ export default function PlaybookGenerator({
     setUploadedFiles(prev => prev.filter(file => file.id !== fileId))
   }
 
+  // Helper function to extract text content from Tiptap JSON while preserving structure
+  const extractTextFromTiptapJSON = (jsonContent: string): string => {
+    try {
+      const parsed = JSON.parse(jsonContent)
+      if (!parsed.content || !Array.isArray(parsed.content)) {
+        return ''
+      }
+      
+      const extractText = (node: any, depth: number = 0): string => {
+        const indent = '  '.repeat(depth)
+        
+        if (node.type === 'text') {
+          return node.text || ''
+        }
+        
+        if (node.type === 'heading') {
+          const level = node.attrs?.level || 1
+          const headingPrefix = '#'.repeat(level) + ' '
+          const content = node.content ? node.content.map((child: any) => extractText(child)).join('') : ''
+          return `\n${headingPrefix}${content}\n`
+        }
+        
+        if (node.type === 'paragraph') {
+          const content = node.content ? node.content.map((child: any) => extractText(child)).join('') : ''
+          return content ? `${content}\n\n` : '\n'
+        }
+        
+        if (node.type === 'bulletList') {
+          const items = node.content ? node.content.map((item: any) => extractText(item, depth + 1)).join('') : ''
+          return items
+        }
+        
+        if (node.type === 'orderedList') {
+          const items = node.content ? node.content.map((item: any, index: number) => {
+            const content = extractText(item, depth + 1)
+            return content.replace(/^- /, `${index + 1}. `)
+          }).join('') : ''
+          return items
+        }
+        
+        if (node.type === 'listItem') {
+          const content = node.content ? node.content.map((child: any) => extractText(child, depth)).join('') : ''
+          return `${indent}- ${content.trim()}\n`
+        }
+        
+        if (node.type === 'blockquote') {
+          const content = node.content ? node.content.map((child: any) => extractText(child)).join('') : ''
+          return `> ${content.trim()}\n\n`
+        }
+        
+        if (node.type === 'codeBlock') {
+          const content = node.content ? node.content.map((child: any) => extractText(child)).join('') : ''
+          return `\`\`\`\n${content}\n\`\`\`\n\n`
+        }
+        
+        if (node.content && Array.isArray(node.content)) {
+          return node.content.map((child: any) => extractText(child, depth)).join('')
+        }
+        
+        return ''
+      }
+      
+      const extractedText = parsed.content.map((node: any) => extractText(node)).join('')
+      console.log('Extracted text length:', extractedText.length)
+      console.log('Extracted text preview:', extractedText.substring(0, 200) + '...')
+      
+      return extractedText.trim()
+    } catch (error) {
+      console.error('Error extracting text from Tiptap JSON:', error)
+      return ''
+    }
+  }
+
   const handleGenerate = async () => {
     // Check if we have either topic text or uploaded files
     const hasTopic = topic.trim().length > 0
@@ -109,7 +209,8 @@ export default function PlaybookGenerator({
       hasTopic,
       hasFiles,
       topicLength: topic.trim().length,
-      fileCount: uploadedFiles.length
+      fileCount: uploadedFiles.length,
+      hasExistingContent: !!existingContent
     })
     
     clearError()
@@ -121,10 +222,15 @@ export default function PlaybookGenerator({
       
       console.log('Documents to process:', documents.length)
       
+      // Convert existing content from Tiptap JSON to readable text
+      const existingContentText = existingContent ? extractTextFromTiptapJSON(existingContent) : undefined
+      
+      console.log('Existing content text length:', existingContentText?.length || 0)
+      
       const result = await generatePlaybook({
         topic: topic.trim() || 'Generate a playbook from the uploaded document(s)',
         documents: documents.length > 0 ? documents : undefined,
-        existingContent
+        existingContent: existingContentText
       })
       
       console.log('Playbook generation completed:', result)
@@ -143,7 +249,7 @@ export default function PlaybookGenerator({
       {/* Topic Input */}
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">
-          Describe your playbook and/or paste in any amount of text that you want the playbook to be about:
+          Describe your playbook topic:
         </label>
         <textarea
           value={topic}
@@ -166,18 +272,31 @@ export default function PlaybookGenerator({
               handleFileUpload(e.dataTransfer.files)
             }}
             onDragOver={(e) => e.preventDefault()}
+            onClick={() => {
+              const fileInput = document.getElementById('file-upload-input') as HTMLInputElement
+              fileInput?.click()
+            }}
           >
             <Upload className="h-2 w-2 text-gray-400" />
-            <label className="text-xs text-blue-600 hover:text-blue-700 cursor-pointer">
+            <span className="text-xs text-blue-600 hover:text-blue-700 cursor-pointer">
               Browse
-              <input
-                type="file"
-                multiple
-                accept=".pdf,.docx,.txt,.md,.csv,.json"
-                className="hidden"
-                onChange={(e) => e.target.files && handleFileUpload(e.target.files)}
-              />
-            </label>
+            </span>
+            <input
+              id="file-upload-input"
+              type="file"
+              multiple
+              accept=".pdf,.docx,.txt,.md,.csv,.json"
+              className="hidden"
+              onChange={(e) => {
+                console.log('File input changed, files:', e.target.files)
+                if (e.target.files && e.target.files.length > 0) {
+                  console.log('Calling handleFileUpload with files:', Array.from(e.target.files).map(f => f.name))
+                  handleFileUpload(e.target.files)
+                } else {
+                  console.log('No files selected or files cancelled')
+                }
+              }}
+            />
           </div>
         </div>
         
