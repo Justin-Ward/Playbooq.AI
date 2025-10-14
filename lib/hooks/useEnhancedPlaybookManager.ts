@@ -94,15 +94,29 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
       } else {
         // Load from remote database (requires authentication)
         if (!user?.id) {
-          console.warn('Attempted to load non-temp playbook without authentication:', id)
+          console.warn('Attempted to load non-temp playbook without authentication:', id, 'User object:', user)
           throw new Error('This playbook requires authentication to access. Please sign in to view saved playbooks.')
         }
         
         const playbook = await playbookService.getPlaybook(id)
         
-        // Verify ownership
+        // Verify ownership or collaboration
         if (playbook.owner_id !== user.id) {
-          throw new Error('You do not have permission to access this playbook')
+          // Check if user is a collaborator
+          const { createSupabaseClient } = await import('@/lib/supabase')
+          const supabase = createSupabaseClient()
+          
+          const { data: collaborator, error: collaboratorError } = await supabase
+            .from('collaborators')
+            .select('permission_level, status')
+            .eq('playbook_id', id)
+            .eq('user_id', user.id)
+            .eq('status', 'accepted')
+            .single()
+          
+          if (collaboratorError || !collaborator) {
+            throw new Error('You do not have permission to access this playbook')
+          }
         }
         
         setCurrentPlaybook(playbook)
@@ -393,7 +407,52 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
       
       // Only load remote playbooks if user is authenticated
       if (user?.id) {
-        remotePlaybooks = await playbookService.getPlaybooks(user.id)
+        // Get playbooks where user is owner
+        const ownedPlaybooks = await playbookService.getPlaybooks(user.id)
+        
+        // Get playbooks where user is a collaborator
+        const { createSupabaseClient } = await import('@/lib/supabase')
+        const supabase = createSupabaseClient()
+        
+        const { data: collaborations, error: collaborationError } = await supabase
+          .from('collaborators')
+          .select(`
+            playbook_id,
+            playbooks!inner(
+              id, title, description, tags, is_public, created_at, updated_at, owner_id
+            )
+          `)
+          .eq('user_id', user.id)
+          .eq('status', 'accepted')
+        
+        if (collaborationError) {
+          console.error('Error fetching collaborations:', collaborationError)
+        }
+        
+        // Convert collaborations to PlaybookListItem format
+        const collaborativePlaybooks: PlaybookListItem[] = (collaborations || [])
+          .map((collab: any) => ({
+            id: collab.playbooks.id,
+            title: collab.playbooks.title,
+            description: collab.playbooks.description,
+            tags: collab.playbooks.tags,
+            is_public: collab.playbooks.is_public,
+            created_at: collab.playbooks.created_at,
+            updated_at: collab.playbooks.updated_at,
+            owner_id: collab.playbooks.owner_id
+          }))
+        
+        // Combine owned and collaborative playbooks, removing duplicates
+        const allRemotePlaybooks = [...ownedPlaybooks, ...collaborativePlaybooks]
+        const uniquePlaybooks = allRemotePlaybooks.filter((playbook, index, self) => 
+          index === self.findIndex(p => p.id === playbook.id)
+        )
+        
+        remotePlaybooks = uniquePlaybooks
+        
+        console.log('Owned playbooks:', ownedPlaybooks.length)
+        console.log('Collaborative playbooks:', collaborativePlaybooks.length)
+        console.log('Total remote playbooks:', remotePlaybooks.length)
       }
       
       // In Guest Mode: only show temporary playbooks

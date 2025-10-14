@@ -648,9 +648,17 @@ export default function PlaybookEditor({
 }
 
 // Export the extractTableOfContents function for use in other components
-export function extractTableOfContents(content: string): Array<{ id: string; title: string; level: number; sectionNumber: string }> {
+export function extractTableOfContents(content: string | any): Array<{ id: string; title: string; level: number; sectionNumber: string }> {
   try {
-    const parsed = JSON.parse(content)
+    // Handle both string and object content
+    let parsed: any
+    if (typeof content === 'string') {
+      parsed = JSON.parse(content)
+    } else if (typeof content === 'object' && content !== null) {
+      parsed = content
+    } else {
+      return []
+    }
     const toc: Array<{ id: string; title: string; level: number; sectionNumber: string }> = []
     
     function traverse(node: any, sectionNumbers: number[] = []) {

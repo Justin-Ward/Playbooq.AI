@@ -3,6 +3,11 @@ import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+// Check if Resend API key is configured
+if (!process.env.RESEND_API_KEY) {
+  console.warn('RESEND_API_KEY is not configured. Email invitations will not work.')
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { 
@@ -31,7 +36,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the invitation acceptance URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3004'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001'
     const acceptUrl = `${baseUrl}/invite/${collaboratorId}`
 
     // Create the HTML email template
@@ -165,6 +170,9 @@ export async function POST(request: NextRequest) {
     `
 
     // Send the email
+    console.log('Attempting to send email to:', invitedEmail)
+    console.log('Using Resend API key:', process.env.RESEND_API_KEY ? 'Present' : 'Missing')
+    
     const { data, error } = await resend.emails.send({
       from: 'Playbooq.AI <noreply@playbooq.ai>',
       to: [invitedEmail],
@@ -173,12 +181,14 @@ export async function POST(request: NextRequest) {
     })
 
     if (error) {
-      console.error('Resend error:', error)
+      console.error('Resend error details:', JSON.stringify(error, null, 2))
       return NextResponse.json(
-        { error: 'Failed to send invitation email' },
+        { error: `Failed to send invitation email: ${error.message || 'Unknown error'}` },
         { status: 500 }
       )
     }
+
+    console.log('Email sent successfully:', data?.id)
 
     return NextResponse.json({
       success: true,

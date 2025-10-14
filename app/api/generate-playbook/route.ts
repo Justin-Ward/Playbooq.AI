@@ -36,7 +36,7 @@ interface PlaybookSection {
 
 interface GeneratePlaybookResponse {
   title: string
-  summary: string
+  description: string
   content: any // Tiptap JSON
   sections: PlaybookSection[]
   rawMarkdown: string
@@ -393,7 +393,7 @@ Your playbooks should be professional, comprehensive, and immediately usable by 
     // Prepare response
     const response: GeneratePlaybookResponse = {
       title,
-      summary,
+      description: summary,
       content: tiptapContent,
       sections,
       rawMarkdown: responseText,

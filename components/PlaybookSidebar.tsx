@@ -247,9 +247,9 @@ export default function PlaybookSidebar({
                       <h3 className="text-sm font-medium text-gray-900 truncate">
                         {playbook.title}
                       </h3>
-                      {playbook.summary && (
+                      {playbook.description && (
                         <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                          {playbook.summary}
+                          {playbook.description}
                         </p>
                       )}
                     </div>

@@ -16,15 +16,9 @@ interface CollaboratorsModalProps {
   currentUserName: string
 }
 
-interface CollaboratorWithProfile extends Collaborator {
-  user_profile?: {
-    display_name?: string
-    avatar_url?: string
-  }
-  inviter_profile?: {
-    display_name?: string
-  }
-}
+// Since there are no foreign key relationships, just use the basic Collaborator type
+// The user_name, user_email are already stored directly in the collaborators table
+type CollaboratorWithProfile = Collaborator
 
 export default function CollaboratorsModal({
   isOpen,
@@ -58,6 +52,13 @@ export default function CollaboratorsModal({
       setLoading(true)
       setError(null)
 
+      // Check if this is a temporary playbook (should not have collaborators)
+      if (playbookId.startsWith('temp-')) {
+        setError('Collaborators are not available for temporary playbooks. Please save the playbook first.')
+        setCollaborators([])
+        return
+      }
+
       const { data, error } = await supabase
         .from('collaborators')
         .select(`
@@ -70,21 +71,60 @@ export default function CollaboratorsModal({
 
       if (error) throw error
 
-      // Add the owner to the list
-      const ownerCollaborator: CollaboratorWithProfile = {
-        id: 'owner',
-        playbook_id: playbookId,
-        user_id: currentUserId,
-        user_email: currentUserEmail,
-        user_name: currentUserName,
-        permission_level: 'owner',
-        invited_by: currentUserId,
-        invited_at: new Date().toISOString(),
-        accepted_at: new Date().toISOString(),
-        status: 'accepted'
+      // Process collaborators to use profile information (include ALL collaborators)
+      const processedCollaborators = (data || [])
+        .map((collab: any) => ({
+          ...collab,
+          user_name: collab.user_profile?.display_name || collab.user_name || collab.user_email,
+          inviter_name: collab.inviter_profile?.display_name || collab.invited_by
+        }))
+
+      // Get the actual playbook owner from the playbooks table
+      const { data: playbookData, error: playbookError } = await supabase
+        .from('playbooks')
+        .select('owner_id')
+        .eq('id', playbookId)
+        .single()
+
+      if (playbookError) {
+        console.error('Error fetching playbook owner:', playbookError)
       }
 
-      setCollaborators([ownerCollaborator, ...(data || [])])
+      const actualOwnerId = playbookData?.owner_id
+
+      // Check if owner is already in the collaborators list
+      const ownerInCollaborators = processedCollaborators.find((c: any) => c.user_id === actualOwnerId)
+      
+      if (ownerInCollaborators) {
+        // Owner is in collaborators table, mark them as owner and ensure they have the right permission
+        ownerInCollaborators.permission_level = 'owner'
+        setCollaborators(processedCollaborators)
+      } else {
+        // Owner is not in collaborators table, add them manually
+        const { data: ownerProfile } = await supabase
+          .from('user_profiles')
+          .select('display_name, avatar_url')
+          .eq('id', actualOwnerId)
+          .single()
+
+        const ownerEmail = actualOwnerId === currentUserId ? currentUserEmail : ''
+
+        const ownerCollaborator: CollaboratorWithProfile = {
+          id: 'owner',
+          playbook_id: playbookId,
+          user_id: actualOwnerId || currentUserId,
+          user_email: ownerEmail,
+          user_name: ownerProfile?.display_name || 'Unknown Owner',
+          permission_level: 'owner',
+          invited_by: actualOwnerId || currentUserId,
+          invited_at: new Date().toISOString(),
+          accepted_at: new Date().toISOString(),
+          status: 'accepted',
+          user_profile: ownerProfile ? { id: actualOwnerId, display_name: ownerProfile.display_name, avatar_url: ownerProfile.avatar_url } : undefined
+        }
+
+        setCollaborators([ownerCollaborator, ...processedCollaborators])
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load collaborators')
     } finally {
@@ -93,6 +133,12 @@ export default function CollaboratorsModal({
   }
 
   const sendInvitation = async () => {
+    // Check if this is a temporary playbook (cannot send invitations)
+    if (playbookId.startsWith('temp-')) {
+      setInviteError('Cannot send invitations for temporary playbooks. Please save the playbook first.')
+      return
+    }
+
     if (!newEmail.trim()) {
       setInviteError('Email is required')
       return
@@ -278,9 +324,9 @@ export default function CollaboratorsModal({
               <h3 className="text-lg font-medium text-gray-900 mb-4">Current Collaborators</h3>
               
               {loading ? (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="animate-pulse bg-gray-200 h-16 rounded-lg"></div>
+                    <div key={i} className="animate-pulse bg-gray-200 h-12 rounded-lg"></div>
                   ))}
                 </div>
               ) : error ? (
@@ -289,66 +335,69 @@ export default function CollaboratorsModal({
                   <span className="text-sm">{error}</span>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {collaborators.map((collaborator) => (
-                    <div key={collaborator.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-                          {collaborator.user_profile?.avatar_url ? (
-                            <img 
-                              src={collaborator.user_profile.avatar_url} 
-                              alt={collaborator.user_name || 'User'} 
-                              className="w-10 h-10 rounded-full"
-                            />
-                          ) : (
-                            <span className="text-sm font-medium text-gray-600">
-                              {(collaborator.user_name || collaborator.user_email).charAt(0).toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-gray-900">
-                              {collaborator.user_profile?.display_name || collaborator.user_name || collaborator.user_email}
-                            </span>
-                            {getPermissionIcon(collaborator.permission_level)}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Scrollable area for collaborators */}
+                  <div className="max-h-48 overflow-y-auto">
+                    <div className="space-y-1 p-2">
+                      {collaborators.map((collaborator) => (
+                        <div key={collaborator.id} className="flex items-center justify-between p-3 hover:bg-gray-50 transition-colors">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                              {collaborator.user_profile?.avatar_url ? (
+                                <img 
+                                  src={collaborator.user_profile.avatar_url} 
+                                  alt={collaborator.user_name || 'User'} 
+                                  className="w-8 h-8 rounded-full"
+                                />
+                              ) : (
+                                <span className="text-xs font-medium text-gray-600">
+                                  {(collaborator.user_name || collaborator.user_email).charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <span className="font-medium text-gray-900 truncate">
+                                {collaborator.user_profile?.display_name || collaborator.user_name || collaborator.user_email}
+                              </span>
+                              <span className="text-sm text-gray-500 truncate">
+                                {collaborator.user_email}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                {getPermissionIcon(collaborator.permission_level)}
+                                {getStatusBadge(collaborator)}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600">{collaborator.user_email}</div>
-                          <div className="flex items-center gap-2 mt-1">
-                            {getStatusBadge(collaborator)}
+
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {/* Permission selector - allow if current user is owner and not managing themselves */}
+                            {collaborators.some(c => c.permission_level === 'owner' && c.user_id === currentUserId) && collaborator.user_id !== currentUserId && (
+                              <select
+                                value={collaborator.permission_level}
+                                onChange={(e) => updatePermission(collaborator.id, e.target.value)}
+                                className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                <option value="view">View</option>
+                                <option value="edit">Edit</option>
+                                <option value="owner">Owner</option>
+                              </select>
+                            )}
+
+                            {/* Remove button - allow if current user is owner and not removing themselves */}
+                            {collaborators.some(c => c.permission_level === 'owner' && c.user_id === currentUserId) && collaborator.user_id !== currentUserId && (
+                              <button
+                                onClick={() => removeCollaborator(collaborator.id)}
+                                className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Remove collaborator"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            )}
                           </div>
                         </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        {/* Permission selector - only for non-owners or if current user is owner */}
-                        {collaborator.permission_level !== 'owner' && (
-                          <select
-                            value={collaborator.permission_level}
-                            onChange={(e) => updatePermission(collaborator.id, e.target.value)}
-                            className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="view">View</option>
-                            <option value="edit">Edit</option>
-                            {collaborator.permission_level === 'owner' || collaborators.some(c => c.permission_level === 'owner' && c.user_id === currentUserId) ? (
-                              <option value="owner">Owner</option>
-                            ) : null}
-                          </select>
-                        )}
-
-                        {/* Remove button - not for owners */}
-                        {collaborator.permission_level !== 'owner' && (
-                          <button
-                            onClick={() => removeCollaborator(collaborator.id)}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Remove collaborator"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
               )}
             </div>

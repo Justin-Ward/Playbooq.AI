@@ -9,7 +9,7 @@ export interface PlaybookData {
   id?: string
   title: string
   content: any // Tiptap JSON content
-  summary?: string
+  description?: string
   tags?: string[]
   is_public?: boolean
   owner_id?: string
@@ -20,7 +20,7 @@ export interface PlaybookData {
 export interface PlaybookListItem {
   id: string
   title: string
-  summary: string | null
+  description: string | null
   tags: string[] | null
   is_public: boolean
   created_at: string
@@ -43,7 +43,7 @@ export class PlaybookService {
         .insert({
           title: playbookData.title,
           content: playbookData.content,
-          summary: playbookData.summary || null,
+          description: playbookData.description || null,
           tags: playbookData.tags || [],
           is_public: playbookData.is_public || false,
           owner_id: playbookData.owner_id || null
@@ -76,7 +76,7 @@ export class PlaybookService {
         .update({
           title: updates.title,
           content: updates.content,
-          summary: updates.summary,
+          description: updates.description,
           tags: updates.tags,
           is_public: updates.is_public,
           updated_at: new Date().toISOString()
@@ -107,7 +107,7 @@ export class PlaybookService {
       
       const { data, error } = await this.supabase
         .from('playbooks')
-        .select('id, title, summary, tags, is_public, created_at, updated_at, owner_id')
+        .select('id, title, description, tags, is_public, created_at, updated_at, owner_id')
         .eq('owner_id', ownerId)
         .order('updated_at', { ascending: false })
 
@@ -188,7 +188,7 @@ export class PlaybookService {
       const duplicatedData: Omit<PlaybookData, 'id'> = {
         title: newTitle || `${originalPlaybook.title} (Copy)`,
         content: originalPlaybook.content,
-        summary: originalPlaybook.summary,
+        description: originalPlaybook.description,
         tags: originalPlaybook.tags,
         is_public: false, // Duplicates are private by default
         owner_id: originalPlaybook.owner_id
@@ -212,9 +212,9 @@ export class PlaybookService {
       
       const { data, error } = await this.supabase
         .from('playbooks')
-        .select('id, title, summary, tags, is_public, created_at, updated_at, owner_id')
+        .select('id, title, description, tags, is_public, created_at, updated_at, owner_id')
         .eq('owner_id', ownerId)
-        .or(`title.ilike.%${query}%,summary.ilike.%${query}%`)
+        .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
         .order('updated_at', { ascending: false })
 
       if (error) {
@@ -239,7 +239,7 @@ export class PlaybookService {
       
       const { data, error } = await this.supabase
         .from('playbooks')
-        .select('id, title, summary, tags, is_public, created_at, updated_at, owner_id')
+        .select('id, title, description, tags, is_public, created_at, updated_at, owner_id')
         .eq('is_public', true)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1)

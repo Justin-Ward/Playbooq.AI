@@ -52,88 +52,21 @@ ALTER TABLE chat_messages REPLICA IDENTITY FULL;
 ALTER TABLE collaborators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 
--- Collaborators policies
-CREATE POLICY "Users can view collaborators of accessible playbooks" ON collaborators
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM playbooks 
-            WHERE id = playbook_id 
-            AND (
-                owner_id = auth.uid()::text
-                OR is_public = true
-                OR EXISTS (
-                    SELECT 1 FROM collaborators 
-                    WHERE playbook_id = playbooks.id 
-                    AND user_id = auth.uid()::text
-                    AND status = 'accepted'
-                )
-            )
-        )
-    );
+-- IMPORTANT: These policies are designed for Clerk authentication, not Supabase Auth
+-- Since we use Clerk auth, auth.uid() will not work and causes infinite recursion errors
+-- All authorization is handled at the application level
 
-CREATE POLICY "Playbook owners can manage collaborators" ON collaborators
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM playbooks 
-            WHERE id = playbook_id 
-            AND owner_id = auth.uid()::text
-        )
-    );
+-- Simplified policies for Clerk authentication
+CREATE POLICY "Allow all operations on collaborators" ON collaborators
+    FOR ALL USING (true);
 
-CREATE POLICY "Users can update their own collaboration status" ON collaborators
-    FOR UPDATE USING (
-        user_id = auth.uid()::text
-        AND status = 'pending'
-    );
+CREATE POLICY "Allow all operations on chat_messages" ON chat_messages
+    FOR ALL USING (true);
 
--- Chat messages policies
-CREATE POLICY "Users can view chat messages for accessible playbooks" ON chat_messages
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM playbooks 
-            WHERE id = playbook_id 
-            AND (
-                owner_id = auth.uid()::text
-                OR is_public = true
-                OR EXISTS (
-                    SELECT 1 FROM collaborators 
-                    WHERE playbook_id = playbooks.id 
-                    AND user_id = auth.uid()::text
-                    AND status = 'accepted'
-                )
-            )
-        )
-    );
-
-CREATE POLICY "Collaborators can send chat messages" ON chat_messages
-    FOR INSERT WITH CHECK (
-        user_id = auth.uid()::text
-        AND EXISTS (
-            SELECT 1 FROM playbooks 
-            WHERE id = playbook_id 
-            AND (
-                owner_id = auth.uid()::text
-                OR EXISTS (
-                    SELECT 1 FROM collaborators 
-                    WHERE playbook_id = playbooks.id 
-                    AND user_id = auth.uid()::text
-                    AND status = 'accepted'
-                    AND permission_level IN ('owner', 'edit', 'view')
-                )
-            )
-        )
-    );
-
-CREATE POLICY "Users can edit their own chat messages" ON chat_messages
-    FOR UPDATE USING (
-        user_id = auth.uid()::text
-        AND deleted = false
-    );
-
-CREATE POLICY "Users can delete their own chat messages" ON chat_messages
-    FOR UPDATE USING (
-        user_id = auth.uid()::text
-    );
+-- Note: In production with Clerk auth, you should either:
+-- 1. Use Supabase service role key for all operations (bypasses RLS)
+-- 2. Implement custom RLS policies that work with your Clerk user IDs
+-- 3. Handle all authorization at the application level (current approach)
 
 -- =============================================
 -- FUNCTIONS FOR COLLABORATION

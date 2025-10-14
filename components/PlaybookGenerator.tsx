@@ -249,7 +249,7 @@ export default function PlaybookGenerator({
       {/* Topic Input */}
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">
-          Describe your playbook topic:
+          Describe your playbook topic and/or add any amount of text that you want the playbook to be about:
         </label>
         <textarea
           value={topic}

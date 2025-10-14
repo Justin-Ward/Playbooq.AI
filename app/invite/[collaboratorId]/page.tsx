@@ -36,16 +36,57 @@ export default function InvitePage() {
       setLoading(true)
       setError(null)
 
-      // Get collaborator details with playbook and inviter info
-      const { data, error } = await supabase
+      // Get collaborator details
+      const { data: collaboratorData, error: collaboratorError } = await supabase
         .from('collaborators')
-        .select(`
-          *,
-          playbook:playbooks!collaborators_playbook_id_fkey(title),
-          inviter_profile:user_profiles!collaborators_invited_by_fkey(display_name)
-        `)
+        .select('*')
         .eq('id', collaboratorId)
         .single()
+
+      if (collaboratorError) {
+        if (collaboratorError.code === 'PGRST116') {
+          throw new Error('Invitation not found or has expired')
+        }
+        throw collaboratorError
+      }
+
+      // Get playbook title
+      const { data: playbookData, error: playbookError } = await supabase
+        .from('playbooks')
+        .select('title')
+        .eq('id', collaboratorData.playbook_id)
+        .single()
+
+      // Get inviter profile (optional, won't fail if not found)
+      console.log('Looking up inviter profile for ID:', collaboratorData.invited_by)
+      const { data: inviterData, error: inviterError } = await supabase
+        .from('user_profiles')
+        .select('display_name')
+        .eq('id', collaboratorData.invited_by)
+        .single()
+
+      console.log('Inviter profile data:', inviterData, 'Error:', inviterError)
+
+      // Use a more user-friendly name display
+      let inviterName = 'Unknown User'
+      if (inviterData?.display_name) {
+        inviterName = inviterData.display_name
+      } else if (collaboratorData.invited_by && !collaboratorData.invited_by.startsWith('user_')) {
+        inviterName = collaboratorData.invited_by
+      } else {
+        // For Clerk user IDs, extract a more readable format
+        inviterName = 'Playbooq User'
+      }
+
+      console.log('Final inviter name:', inviterName)
+
+      const data = {
+        ...collaboratorData,
+        playbook_title: playbookData?.title || 'Unknown Playbook',
+        inviter_name: inviterName
+      }
+
+      const error = playbookError
 
       if (error) {
         if (error.code === 'PGRST116') {
@@ -85,6 +126,21 @@ export default function InvitePage() {
       // Check if user's email matches the invitation
       if (user.primaryEmailAddress?.emailAddress !== collaborator?.user_email) {
         throw new Error('This invitation was sent to a different email address')
+      }
+
+      // First, ensure the user profile exists
+      const { error: profileError } = await supabase
+        .from('user_profiles')
+        .upsert({
+          id: user.id,
+          display_name: user.fullName || user.firstName || user.primaryEmailAddress?.emailAddress || 'User',
+          avatar_url: user.imageUrl,
+          updated_at: new Date().toISOString()
+        })
+
+      if (profileError) {
+        console.error('Error creating user profile:', profileError)
+        // Continue anyway, the profile might already exist
       }
 
       // Update collaborator status to accepted

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
+import { useSearchParams } from 'next/navigation'
 import {
   ChevronLeft,
   ChevronRight,
@@ -23,6 +24,7 @@ import PlaybookEditor, { extractTableOfContents } from '@/components/PlaybookEdi
 import PlaybookGenerator from '@/components/PlaybookGenerator'
 import PlaybookSidebar from '@/components/PlaybookSidebar'
 import CollaboratorsModal from '@/components/CollaboratorsModal'
+import PlaybookChat from '@/components/PlaybookChat'
 import LoadingSkeleton from '@/components/LoadingSkeleton'
 import { useEnhancedPlaybookManager } from '@/lib/hooks/useEnhancedPlaybookManager'
 import { useGeneratePlaybook } from '@/lib/hooks/useGeneratePlaybook'
@@ -31,6 +33,7 @@ import Link from 'next/link'
 
 export default function PlaybooksPage() {
   const { user, isLoaded: isUserLoaded } = useUser()
+  const searchParams = useSearchParams()
   const {
     playbookList,
     currentPlaybook,
@@ -63,6 +66,7 @@ export default function PlaybooksPage() {
   const [aiGenerationExpanded, setAiGenerationExpanded] = useState(true)
   const [showSignInPrompt, setShowSignInPrompt] = useState(false)
   const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
+  const [showChat, setShowChat] = useState(false)
   const [tableOfContents, setTableOfContents] = useState<Array<{ id: string; title: string; level: number; sectionNumber: string }>>([])
 
   const titleInputRef = useRef<HTMLInputElement>(null)
@@ -203,6 +207,19 @@ export default function PlaybooksPage() {
     }
   }, [])
 
+  // Handle URL parameter to load specific playbook (e.g., from invitation acceptance)
+  useEffect(() => {
+    const playbookId = searchParams.get('id')
+    if (playbookId && playbookId !== currentPlaybook?.id && isUserLoaded) {
+      console.log('Loading playbook from URL parameter:', playbookId, 'User loaded:', !!user)
+      if (user?.id) {
+        loadPlaybook(playbookId)
+      } else {
+        console.warn('Cannot load playbook - user not authenticated')
+      }
+    }
+  }, [searchParams, currentPlaybook?.id, loadPlaybook, isUserLoaded, user?.id])
+
   // Debugging for Manage Collaborators button
   useEffect(() => {
     console.log('PlaybooksPage mounted/updated. user:', user, 'isLoaded:', isUserLoaded);
@@ -333,33 +350,50 @@ export default function PlaybooksPage() {
               <button
                 onClick={() => {
                   console.log('Manage Collaborators clicked, isAuthenticated:', !!user, 'user:', user)
-                  setShowCollaboratorsModal(true)
+                  console.log('Current playbook ID:', currentPlaybook?.id, 'Is temp:', LocalPlaybookService.isTempPlaybook(currentPlaybook?.id || ''))
+                  
+                  if (!user) {
+                    // Show sign-in prompt for guest users
+                    setShowSignInPrompt(true)
+                  } else if (LocalPlaybookService.isTempPlaybook(currentPlaybook?.id || '')) {
+                    // Show message that collaborators are not available for temporary playbooks
+                    alert('Collaborators are not available for temporary playbooks. Please save the playbook first to enable collaboration features.')
+                  } else {
+                    setShowCollaboratorsModal(true)
+                  }
                 }}
-                className="w-full p-3 flex items-center justify-between hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={!user}
+                className="w-full p-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <div className="p-1 bg-blue-100 rounded">
                     <Users className="h-4 w-4 text-blue-600" />
                   </div>
-                  <h3 className="text-sm font-semibold text-gray-900">Manage Collaborators</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    {user ? 'Manage Collaborators' : 'Collaborators (Sign In Required)'}
+                  </h3>
                 </div>
                 <ChevronRight className="h-4 w-4 text-gray-500" />
               </button>
             </div>
 
             {/* Chat Section */}
-            <div className="border-t border-gray-200 flex-shrink-0">
-              <div className="p-3 border-b border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900">Collaborator Chat</h3>
-              </div>
-
-              <div className="p-3 bg-gray-50 min-h-[120px]">
-                <div className="text-xs text-gray-500 text-center">
-                  Chat functionality coming soon
-                </div>
-              </div>
-            </div>
+            <PlaybookChat
+              playbookId={currentPlaybook?.id || ''}
+              currentUser={{
+                id: user?.id || '',
+                name: user?.fullName || user?.firstName || 'User',
+                email: user?.primaryEmailAddress?.emailAddress || '',
+                avatar: user?.imageUrl
+              }}
+              permissionLevel={
+                // Determine permission level based on current user and playbook
+                !user?.id ? 'view' :
+                (currentPlaybook && 'owner_id' in currentPlaybook && !('is_temp' in currentPlaybook) && currentPlaybook.owner_id === user.id) ? 'owner' :
+                'edit' // Default to edit for authenticated users on non-owned playbooks
+              }
+              isOpen={showChat}
+              onToggle={() => setShowChat(!showChat)}
+            />
           </div>
         )}
       </div>
