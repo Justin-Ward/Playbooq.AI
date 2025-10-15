@@ -267,7 +267,10 @@ export default function PlaybookSidebar({
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-gray-900 truncate">
+                      <h3 
+                        className="text-sm font-medium text-gray-900 truncate"
+                        title={playbook.title}
+                      >
                         {playbook.title}
                       </h3>
                       {playbook.description && (
@@ -292,6 +295,17 @@ export default function PlaybookSidebar({
                       <Calendar className="h-3 w-3" />
                       {formatDate(playbook.updated_at)}
                     </div>
+                    
+                    {/* Marketplace Status - inline with date */}
+                    {playbook.is_marketplace && (
+                      <>
+                        <div className="h-3 w-px bg-gray-300"></div>
+                        <div className="text-green-600 font-medium">
+                          In the Marketplace
+                        </div>
+                      </>
+                    )}
+                    
                     {'is_temp' in playbook && playbook.is_temp && (
                       <div className="flex items-center gap-1 text-amber-600">
                         <div className="h-2 w-2 bg-amber-500 rounded-full"></div>
@@ -311,6 +325,15 @@ export default function PlaybookSidebar({
                       </div>
                     )}
                   </div>
+                  
+                  {/* Purchased Status - on separate line if needed */}
+                  {'is_purchased' in playbook && playbook.is_purchased && (
+                    <div className="mt-1 text-xs">
+                      <div className="text-blue-600 font-medium">
+                        Purchased from Marketplace
+                      </div>
+                    </div>
+                  )}
                 </div>
               </ContextMenu>
             ))}

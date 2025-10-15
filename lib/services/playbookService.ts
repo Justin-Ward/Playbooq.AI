@@ -35,6 +35,7 @@ export interface PlaybookListItem {
   price?: number
   total_purchases?: number
   average_rating?: number
+  is_purchased?: boolean
 }
 
 export class PlaybookService {
@@ -156,7 +157,7 @@ export class PlaybookService {
       
       const { data, error } = await this.supabase
         .from('playbooks')
-        .select('id, title, description, tags, is_public, created_at, updated_at, owner_id')
+        .select('id, title, description, tags, is_public, created_at, updated_at, owner_id, is_marketplace, price, total_purchases, average_rating')
         .eq('owner_id', ownerId)
         .order('updated_at', { ascending: false })
 

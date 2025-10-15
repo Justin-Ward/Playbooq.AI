@@ -8,6 +8,7 @@ export interface LocalPlaybook extends Omit<PlaybookData, 'id' | 'owner_id' | 'c
   created_at: string
   updated_at: string
   is_temp: boolean
+  is_purchased?: boolean
 }
 
 export class LocalPlaybookService {

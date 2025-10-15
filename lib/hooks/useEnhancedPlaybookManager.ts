@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { playbookService, PlaybookData, PlaybookListItem } from '@/lib/services/playbookService'
 import { LocalPlaybookService, LocalPlaybook } from '@/lib/services/localPlaybookService'
+// import { marketplaceService } from '@/lib/services/marketplaceService'
 
 interface UseEnhancedPlaybookManagerReturn {
   // Current playbook state
@@ -123,6 +124,12 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
         setLastSaved(new Date())
         hasUnsavedChangesRef.current = false
         console.log('Remote playbook loaded successfully:', playbook.title)
+        // console.log('Playbook marketplace data:', {
+        //   is_marketplace: playbook.is_marketplace,
+        //   price: playbook.price,
+        //   total_purchases: playbook.total_purchases,
+        //   average_rating: playbook.average_rating
+        // })
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load playbook'
@@ -419,7 +426,8 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
           .select(`
             playbook_id,
             playbooks!inner(
-              id, title, description, tags, is_public, created_at, updated_at, owner_id
+              id, title, description, tags, is_public, created_at, updated_at, owner_id,
+              is_marketplace, price, total_purchases, average_rating
             )
           `)
           .eq('user_id', user.id)
@@ -439,7 +447,11 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
             is_public: collab.playbooks.is_public,
             created_at: collab.playbooks.created_at,
             updated_at: collab.playbooks.updated_at,
-            owner_id: collab.playbooks.owner_id
+            owner_id: collab.playbooks.owner_id,
+            is_marketplace: collab.playbooks.is_marketplace,
+            price: collab.playbooks.price,
+            total_purchases: collab.playbooks.total_purchases,
+            average_rating: collab.playbooks.average_rating
           }))
         
         // Combine owned and collaborative playbooks, removing duplicates
@@ -448,11 +460,14 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
           index === self.findIndex(p => p.id === playbook.id)
         )
         
+        // Temporarily disable purchase functionality to focus on marketplace status
+        // TODO: Re-enable purchase functionality after fixing import issues
         remotePlaybooks = uniquePlaybooks
         
         console.log('Owned playbooks:', ownedPlaybooks.length)
         console.log('Collaborative playbooks:', collaborativePlaybooks.length)
         console.log('Total remote playbooks:', remotePlaybooks.length)
+        // console.log('Sample playbook data:', JSON.stringify(remotePlaybooks[0], null, 2))
       }
       
       // In Guest Mode: only show temporary playbooks
