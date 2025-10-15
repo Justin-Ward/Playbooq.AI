@@ -71,13 +71,36 @@ export default function CollaboratorsModal({
 
       if (error) throw error
 
+      console.log('Loading collaborators for playbook:', playbookId, 'current user:', currentUserId, 'current user email:', currentUserEmail)
+      console.log('Raw collaborators data from database:', JSON.stringify(data, null, 2))
+
       // Process collaborators to use profile information (include ALL collaborators)
       const processedCollaborators = (data || [])
-        .map((collab: any) => ({
-          ...collab,
-          user_name: collab.user_profile?.display_name || collab.user_name || collab.user_email,
-          inviter_name: collab.inviter_profile?.display_name || collab.invited_by
-        }))
+        .map((collab: any) => {
+          // Ensure email is available - use current user email if this is the current user and email is missing
+          let userEmail = collab.user_email
+          if (!userEmail && collab.user_id === currentUserId) {
+            userEmail = currentUserEmail
+          }
+          
+          console.log('Processing collaborator:', JSON.stringify({
+            id: collab.id,
+            user_id: collab.user_id,
+            user_email: collab.user_email,
+            user_name: collab.user_name,
+            profile_display_name: collab.user_profile?.display_name,
+            final_email: userEmail,
+            is_current_user: collab.user_id === currentUserId,
+            full_collaborator_object: collab
+          }, null, 2))
+          
+          return {
+            ...collab,
+            user_email: userEmail, // Ensure email is set
+            user_name: collab.user_profile?.display_name || collab.user_name || collab.user_email,
+            inviter_name: collab.inviter_profile?.display_name || collab.invited_by
+          }
+        })
 
       // Get the actual playbook owner from the playbooks table
       const { data: playbookData, error: playbookError } = await supabase
@@ -98,6 +121,12 @@ export default function CollaboratorsModal({
       if (ownerInCollaborators) {
         // Owner is in collaborators table, mark them as owner and ensure they have the right permission
         ownerInCollaborators.permission_level = 'owner'
+        console.log('Owner found in collaborators table:', ownerInCollaborators)
+        console.log('Final collaborators with emails (owner in table):', JSON.stringify(processedCollaborators.map(c => ({
+          name: c.user_name,
+          email: c.user_email,
+          permission: c.permission_level
+        })), null, 2))
         setCollaborators(processedCollaborators)
       } else {
         // Owner is not in collaborators table, add them manually
@@ -107,7 +136,63 @@ export default function CollaboratorsModal({
           .eq('id', actualOwnerId)
           .single()
 
-        const ownerEmail = actualOwnerId === currentUserId ? currentUserEmail : ''
+        // Try to get owner's email from the collaborators table (they might be listed as an inviter)
+        let ownerEmail = actualOwnerId === currentUserId ? currentUserEmail : ''
+        
+        // If we still don't have the owner's email, try to find it in the collaborators table
+        if (!ownerEmail) {
+          const { data: ownerFromCollaborators } = await supabase
+            .from('collaborators')
+            .select('user_email')
+            .eq('user_id', actualOwnerId)
+            .single()
+          
+          if (ownerFromCollaborators?.user_email) {
+            ownerEmail = ownerFromCollaborators.user_email
+          }
+        }
+        
+        // If we still don't have the owner's email, try to find it from any collaborator where this user is the inviter
+        if (!ownerEmail) {
+          const { data: inviterData } = await supabase
+            .from('collaborators')
+            .select('invited_by, user_email')
+            .eq('invited_by', actualOwnerId)
+            .single()
+          
+          // If we still don't have the owner's email, we'll leave it empty
+          // The UI should handle displaying this gracefully
+        }
+        
+        console.log('Owner email resolution:', {
+          actualOwnerId,
+          currentUserId,
+          currentUserEmail,
+          ownerEmail,
+          ownerProfile
+        })
+        
+        // Try to update the owner's collaborator record with their profile information
+        if (actualOwnerId && ownerProfile) {
+          try {
+            const { error: updateError } = await supabase
+              .from('collaborators')
+              .update({
+                user_name: ownerProfile.display_name,
+                user_email: ownerEmail || ''
+              })
+              .eq('playbook_id', playbookId)
+              .eq('user_id', actualOwnerId)
+            
+            if (updateError) {
+              console.warn('Failed to update owner collaborator info:', updateError)
+            } else {
+              console.log('Updated owner collaborator info:', ownerProfile.display_name, ownerEmail)
+            }
+          } catch (updateError) {
+            console.warn('Error updating owner collaborator info:', updateError)
+          }
+        }
 
         const ownerCollaborator: CollaboratorWithProfile = {
           id: 'owner',
@@ -123,7 +208,14 @@ export default function CollaboratorsModal({
           user_profile: ownerProfile ? { id: actualOwnerId, display_name: ownerProfile.display_name, avatar_url: ownerProfile.avatar_url } : undefined
         }
 
-        setCollaborators([ownerCollaborator, ...processedCollaborators])
+        const finalCollaborators = [ownerCollaborator, ...processedCollaborators]
+        setCollaborators(finalCollaborators)
+        console.log('Final collaborators list (owner added manually):', finalCollaborators)
+        console.log('Final collaborators with emails:', JSON.stringify(finalCollaborators.map(c => ({
+          name: c.user_name,
+          email: c.user_email,
+          permission: c.permission_level
+        })), null, 2))
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load collaborators')
@@ -360,7 +452,7 @@ export default function CollaboratorsModal({
                                 {collaborator.user_profile?.display_name || collaborator.user_name || collaborator.user_email}
                               </span>
                               <span className="text-sm text-gray-500 truncate">
-                                {collaborator.user_email}
+                                {collaborator.user_email || 'Email not available'}
                               </span>
                               <div className="flex items-center gap-1">
                                 {getPermissionIcon(collaborator.permission_level)}

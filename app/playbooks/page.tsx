@@ -42,6 +42,8 @@ export default function PlaybooksPage() {
     deletePlaybook,
     duplicatePlaybook,
     createNewPlaybook,
+    searchPlaybooks,
+    refreshPlaybookList,
     isAuthenticated,
     tempPlaybookCount,
     canCreateMore,
@@ -246,8 +248,8 @@ export default function PlaybooksPage() {
               loadPlaybook={loadPlaybook}
               deletePlaybook={deletePlaybook}
               duplicatePlaybook={duplicatePlaybook}
-              searchPlaybooks={async (query) => { }}
-              refreshPlaybookList={async () => { }}
+              searchPlaybooks={searchPlaybooks}
+              refreshPlaybookList={refreshPlaybookList}
               clearError={clearError}
               tableOfContents={tableOfContents}
               onScrollToHeading={scrollToHeading}

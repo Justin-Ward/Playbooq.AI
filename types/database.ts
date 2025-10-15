@@ -23,6 +23,11 @@ export type Database = {
           version: number
           created_at: string
           updated_at: string
+          is_marketplace: boolean
+          price: number
+          preview_content: Json | null
+          total_purchases: number
+          average_rating: number
         }
         Insert: {
           id?: string
@@ -37,6 +42,11 @@ export type Database = {
           version?: number
           created_at?: string
           updated_at?: string
+          is_marketplace?: boolean
+          price?: number
+          preview_content?: Json | null
+          total_purchases?: number
+          average_rating?: number
         }
         Update: {
           id?: string
@@ -51,6 +61,11 @@ export type Database = {
           version?: number
           created_at?: string
           updated_at?: string
+          is_marketplace?: boolean
+          price?: number
+          preview_content?: Json | null
+          total_purchases?: number
+          average_rating?: number
         }
         Relationships: []
       }
@@ -254,6 +269,155 @@ export type Database = {
           }
         ]
       }
+      marketplace_ratings: {
+        Row: {
+          id: string
+          playbook_id: string
+          user_id: string
+          rating: number
+          review: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          playbook_id: string
+          user_id: string
+          rating: number
+          review?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          playbook_id?: string
+          user_id?: string
+          rating?: number
+          review?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_ratings_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      playbook_purchases: {
+        Row: {
+          id: string
+          playbook_id: string
+          user_id: string
+          purchased_at: string
+          price_paid: number | null
+        }
+        Insert: {
+          id?: string
+          playbook_id: string
+          user_id: string
+          purchased_at?: string
+          price_paid?: number | null
+        }
+        Update: {
+          id?: string
+          playbook_id?: string
+          user_id?: string
+          purchased_at?: string
+          price_paid?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playbook_purchases_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      purchases: {
+        Row: {
+          id: string
+          playbook_id: string
+          buyer_id: string
+          seller_id: string
+          amount_total: number
+          platform_fee: number
+          seller_amount: number
+          stripe_payment_intent_id: string | null
+          payout_status: 'pending' | 'completed' | 'failed'
+          payout_date: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          playbook_id: string
+          buyer_id: string
+          seller_id: string
+          amount_total: number
+          platform_fee: number
+          seller_amount: number
+          stripe_payment_intent_id?: string | null
+          payout_status?: 'pending' | 'completed' | 'failed'
+          payout_date?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          playbook_id?: string
+          buyer_id?: string
+          seller_id?: string
+          amount_total?: number
+          platform_fee?: number
+          seller_amount?: number
+          stripe_payment_intent_id?: string | null
+          payout_status?: 'pending' | 'completed' | 'failed'
+          payout_date?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      playbook_favorites: {
+        Row: {
+          id: string
+          playbook_id: string
+          user_id: string
+          favorited_at: string
+        }
+        Insert: {
+          id?: string
+          playbook_id: string
+          user_id: string
+          favorited_at?: string
+        }
+        Update: {
+          id?: string
+          playbook_id?: string
+          user_id?: string
+          favorited_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playbook_favorites_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "playbooks"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -441,6 +605,22 @@ export type ChatMessage = Tables<'chat_messages'>
 export type ChatMessageInsert = TablesInsert<'chat_messages'>
 export type ChatMessageUpdate = TablesUpdate<'chat_messages'>
 
+export type MarketplaceRating = Tables<'marketplace_ratings'>
+export type MarketplaceRatingInsert = TablesInsert<'marketplace_ratings'>
+export type MarketplaceRatingUpdate = TablesUpdate<'marketplace_ratings'>
+
+export type PlaybookPurchase = Tables<'playbook_purchases'>
+export type PlaybookPurchaseInsert = TablesInsert<'playbook_purchases'>
+export type PlaybookPurchaseUpdate = TablesUpdate<'playbook_purchases'>
+
+export type Purchase = Tables<'purchases'>
+export type PurchaseInsert = TablesInsert<'purchases'>
+export type PurchaseUpdate = TablesUpdate<'purchases'>
+
+export type PlaybookFavorite = Tables<'playbook_favorites'>
+export type PlaybookFavoriteInsert = TablesInsert<'playbook_favorites'>
+export type PlaybookFavoriteUpdate = TablesUpdate<'playbook_favorites'>
+
 // Extended types with relationships
 export type PlaybookWithDetails = Playbook & {
   collaborators?: PlaybookCollaborator[]
@@ -510,4 +690,69 @@ export interface PaginatedResponse<T = any> extends ApiResponse<T[]> {
     total: number
     totalPages: number
   }
+}
+
+// Marketplace-specific types
+export type PayoutStatus = 'pending' | 'completed' | 'failed'
+
+export interface MarketplacePlaybook extends Playbook {
+  is_marketplace: true
+  price: number
+  preview_content: Json | null
+  total_purchases: number
+  average_rating: number
+}
+
+export interface PlaybookWithRatings extends Playbook {
+  ratings?: MarketplaceRating[]
+  user_rating?: MarketplaceRating
+  purchase_count?: number
+  is_favorited?: boolean
+}
+
+export interface MarketplaceSearchFilters {
+  category?: string
+  minPrice?: number
+  maxPrice?: number
+  minRating?: number
+  tags?: string[]
+  sortBy?: 'price' | 'rating' | 'purchases' | 'created_at'
+  sortOrder?: 'asc' | 'desc'
+}
+
+export interface PurchaseWithDetails extends Purchase {
+  playbook?: Playbook
+  buyer_profile?: UserProfile
+  seller_profile?: UserProfile
+}
+
+export interface RatingWithUser extends MarketplaceRating {
+  user_profile?: UserProfile
+}
+
+// Payment-related types
+export interface PaymentIntent {
+  id: string
+  amount: number
+  currency: string
+  status: string
+  client_secret: string
+}
+
+export interface CheckoutSession {
+  id: string
+  url: string
+  amount_total: number
+  currency: string
+}
+
+// Favorites-related types
+export interface FavoriteWithPlaybook extends PlaybookFavorite {
+  playbook?: Playbook
+}
+
+export interface MarketplacePlaybookWithStatus extends MarketplacePlaybook {
+  is_favorited?: boolean
+  is_purchased?: boolean
+  user_rating?: MarketplaceRating
 }

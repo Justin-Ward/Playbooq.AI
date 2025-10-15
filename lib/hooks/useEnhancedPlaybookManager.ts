@@ -500,7 +500,7 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
       const tempPlaybooks = LocalPlaybookService.getTempPlaybooks()
       const tempResults = tempPlaybooks.filter(playbook => 
         playbook.title.toLowerCase().includes(query.toLowerCase()) ||
-        (playbook.summary && playbook.summary.toLowerCase().includes(query.toLowerCase()))
+        (playbook.description && playbook.description.toLowerCase().includes(query.toLowerCase()))
       )
       
       let remoteResults: PlaybookListItem[] = []

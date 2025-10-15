@@ -57,6 +57,36 @@ export class PlaybookService {
       }
 
       console.log('Playbook saved successfully:', data.id)
+      
+      // Add the owner as a collaborator
+      if (playbookData.owner_id) {
+        try {
+          const { error: collaboratorError } = await this.supabase
+            .from('collaborators')
+            .insert({
+              playbook_id: data.id,
+              user_id: playbookData.owner_id,
+              user_email: '', // Will be filled in later if available
+              user_name: '', // Will be filled in later if available
+              permission_level: 'owner',
+              invited_by: playbookData.owner_id,
+              invited_at: new Date().toISOString(),
+              accepted_at: new Date().toISOString(),
+              status: 'accepted'
+            })
+          
+          if (collaboratorError) {
+            console.warn('Failed to add owner as collaborator:', collaboratorError)
+            // Don't fail the entire operation if this fails
+          } else {
+            console.log('Owner added as collaborator for playbook:', data.id)
+          }
+        } catch (collaboratorError) {
+          console.warn('Error adding owner as collaborator:', collaboratorError)
+          // Don't fail the entire operation if this fails
+        }
+      }
+      
       return data as PlaybookData
     } catch (error) {
       console.error('PlaybookService.savePlaybook error:', error)

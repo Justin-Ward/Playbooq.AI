@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import LoadingSkeleton, { PlaybookListItemSkeleton } from './LoadingSkeleton'
 import ContextMenu from './ContextMenu'
+import Link from 'next/link'
 
 interface PlaybookSection {
   id: string
@@ -137,9 +138,31 @@ export default function PlaybookSidebar({
 
   return (
     <div className={`h-full flex flex-col bg-white border-r border-gray-200 ${className}`}>
-      {/* Header */}
+      {/* Top Header with Navigation */}
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-4">
+          <Link 
+            href="/" 
+            className="text-xl font-bold text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            Playbooq.AI
+          </Link>
+          <div className="h-6 w-px bg-gray-300"></div>
+          <Link 
+            href="/marketplace" 
+            className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+          >
+            Marketplace
+          </Link>
+        </div>
+      </div>
+
+      {/* Dividing Line */}
+      <div className="border-b border-gray-200"></div>
+
+      {/* My Playbooks Section */}
       <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">My Playbooks</h2>
           <div className="flex items-center gap-2">
             <button
