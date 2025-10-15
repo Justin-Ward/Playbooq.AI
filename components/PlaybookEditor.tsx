@@ -12,29 +12,27 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
 import { useState, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import {
+import { 
   Bold, Italic, Underline as UnderlineIcon, List, ListOrdered,
   IndentDecrease, IndentIncrease, Link as LinkIcon, StickyNote, Minus,
-  Eye, Download, History, Copy, Store, Palette, Highlighter,
+  Eye, Download, History, Copy, Palette, Highlighter,
   ChevronDown, ChevronRight, AlignLeft, AlignCenter, AlignRight, AlignJustify
 } from 'lucide-react'
 
 interface PlaybookEditorProps {
-  content?: string
-  onChange?: (content: string) => void
-  editable?: boolean
-  placeholder?: string
-  onSelectionChange?: (selection: any) => void
-  className?: string
-  onExportPDF?: () => void
-  onOpenVersions?: () => void
-  onDuplicatePlaybook?: () => void
-  onToggleMarketplace?: () => void
-  isInMarketplace?: boolean
-  isSaving?: boolean
-  lastSaved?: Date | null
-  trackChangesEnabled?: boolean
-  onToggleTrackChanges?: () => void
+      content?: string
+      onChange?: (content: string) => void
+      editable?: boolean
+      placeholder?: string
+      onSelectionChange?: (selection: any) => void
+      className?: string
+      onExportPDF?: () => void
+      onOpenVersions?: () => void
+      onDuplicatePlaybook?: () => void
+      isSaving?: boolean
+      lastSaved?: Date | null
+      trackChangesEnabled?: boolean
+      onToggleTrackChanges?: () => void
 }
 
 export default function PlaybookEditor({
@@ -44,11 +42,9 @@ export default function PlaybookEditor({
   placeholder = 'Start writing your playbook...',
   onSelectionChange,
   className = '',
-  onExportPDF,
-  onOpenVersions,
-  onDuplicatePlaybook,
-  onToggleMarketplace,
-  isInMarketplace = false,
+  onExportPDF, 
+  onOpenVersions, 
+  onDuplicatePlaybook, 
   isSaving = false,
   lastSaved = null,
   trackChangesEnabled = false,
@@ -181,7 +177,7 @@ export default function PlaybookEditor({
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const minutes = Math.floor(diff / 60000)
-
+    
     if (minutes < 1) return 'Just now'
     if (minutes < 60) return `${minutes}m ago`
     const hours = Math.floor(minutes / 60)
@@ -202,78 +198,78 @@ export default function PlaybookEditor({
       {/* Editor Toolbar */}
       <div className="border-b border-gray-200 bg-gray-50 p-2 sticky top-0 z-20 flex-shrink-0">
         <div className="flex items-center gap-2 overflow-x-auto overflow-y-visible toolbar-scroll">
-          {/* Left Side - Formatting Tools */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Text Formatting */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
-              <button
+        {/* Left Side - Formatting Tools */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Text Formatting */}
+          <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
+            <button
                 onClick={() => editor.chain().toggleBold().run()}
-                className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                  editor.isActive('bold') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                }`}
-                title="Bold (Ctrl+B)"
-              >
-                <Bold className="h-4 w-4" />
-              </button>
-              <button
+              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                editor.isActive('bold') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+              }`}
+              title="Bold (Ctrl+B)"
+            >
+              <Bold className="h-4 w-4" />
+            </button>
+            <button
                 onClick={() => editor.chain().toggleItalic().run()}
-                className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                  editor.isActive('italic') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                }`}
-                title="Italic (Ctrl+I)"
-              >
-                <Italic className="h-4 w-4" />
-              </button>
-              <button
+              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                editor.isActive('italic') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+              }`}
+              title="Italic (Ctrl+I)"
+            >
+              <Italic className="h-4 w-4" />
+            </button>
+            <button
                 onClick={() => editor.chain().toggleUnderline().run()}
-                className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                  editor.isActive('underline') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                }`}
-                title="Underline (Ctrl+U)"
-              >
-                <UnderlineIcon className="h-4 w-4" />
-              </button>
-            </div>
+              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                editor.isActive('underline') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+              }`}
+              title="Underline (Ctrl+U)"
+            >
+              <UnderlineIcon className="h-4 w-4" />
+            </button>
+          </div>
 
-            {/* Lists */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
-              <button
+          {/* Lists */}
+          <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
+            <button
                 onClick={() => editor.chain().toggleBulletList().run()}
-                className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                  editor.isActive('bulletList') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                }`}
-                title="Bullet List"
-              >
-                <List className="h-4 w-4" />
-              </button>
-              <button
+              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                editor.isActive('bulletList') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+              }`}
+              title="Bullet List"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
                 onClick={() => editor.chain().toggleOrderedList().run()}
-                className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                  editor.isActive('orderedList') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                }`}
-                title="Numbered List"
-              >
-                <ListOrdered className="h-4 w-4" />
-              </button>
-            </div>
+              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                editor.isActive('orderedList') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+              }`}
+              title="Numbered List"
+            >
+              <ListOrdered className="h-4 w-4" />
+            </button>
+          </div>
 
-            {/* Indentation */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
-              <button
+          {/* Indentation */}
+          <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
+            <button
                 onClick={() => editor.chain().liftListItem('listItem').run()}
-                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-                title="Decrease Indent"
-              >
-                <IndentDecrease className="h-4 w-4" />
-              </button>
-              <button
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+              title="Decrease Indent"
+            >
+              <IndentDecrease className="h-4 w-4" />
+            </button>
+            <button
                 onClick={() => editor.chain().sinkListItem('listItem').run()}
-                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-                title="Increase Indent"
-              >
-                <IndentIncrease className="h-4 w-4" />
-              </button>
-            </div>
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+              title="Increase Indent"
+            >
+              <IndentIncrease className="h-4 w-4" />
+            </button>
+          </div>
 
             {/* Font Editor */}
             <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
@@ -295,10 +291,10 @@ export default function PlaybookEditor({
               </div>
             </div>
 
-            {/* Text Alignment */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
+          {/* Text Alignment */}
+          <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
               <div className="relative">
-                <button
+              <button
                   onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect()
                     setButtonPositions(prev => ({ ...prev, textAlign: rect }))
@@ -307,24 +303,24 @@ export default function PlaybookEditor({
                     setShowHighlightPopup(false)
                     setShowFontEditorPopup(false)
                   }}
-                  className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                className={`p-2 rounded hover:bg-gray-200 transition-colors ${
                     editor.isActive({ textAlign: 'left' }) ||
                     editor.isActive({ textAlign: 'center' }) ||
                     editor.isActive({ textAlign: 'right' }) ||
                     editor.isActive({ textAlign: 'justify' })
                       ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                  }`}
-                  title="Text Alignment"
-                >
-                  <AlignLeft className="h-4 w-4" />
-                </button>
-              </div>
+                }`}
+                title="Text Alignment"
+              >
+                <AlignLeft className="h-4 w-4" />
+              </button>
             </div>
+          </div>
 
-            {/* Colors */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
+          {/* Colors */}
+          <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
               <div className="relative">
-                <button
+              <button
                   onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect()
                     setButtonPositions(prev => ({ ...prev, textColor: rect }))
@@ -333,14 +329,14 @@ export default function PlaybookEditor({
                     setShowTextAlignPopup(false)
                     setShowFontEditorPopup(false)
                   }}
-                  className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-                  title="Text Color"
-                >
-                  <Palette className="h-4 w-4" />
-                </button>
-              </div>
+                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+                title="Text Color"
+              >
+                <Palette className="h-4 w-4" />
+              </button>
+                </div>
               <div className="relative">
-                <button
+              <button
                   onClick={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect()
                     setButtonPositions(prev => ({ ...prev, highlight: rect }))
@@ -349,103 +345,87 @@ export default function PlaybookEditor({
                     setShowTextAlignPopup(false)
                     setShowFontEditorPopup(false)
                   }}
-                  className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-                  title="Highlight Color"
-                >
-                  <Highlighter className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Special Elements */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
-              <button
-                onClick={setLink}
-                className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                  editor.isActive('link') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                }`}
-                title="Insert Link (Ctrl+K)"
-              >
-                <LinkIcon className="h-4 w-4" />
-              </button>
-              <button
-                onClick={addNote}
                 className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-                title="Insert Note"
+                title="Highlight Color"
               >
-                <StickyNote className="h-4 w-4" />
-              </button>
-              <button
-                onClick={addHorizontalRule}
-                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-                title="Insert Horizontal Rule"
-              >
-                <Minus className="h-4 w-4" />
+                <Highlighter className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          {/* Right Side - Document Actions */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Document Actions */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
-              <button
+          {/* Special Elements */}
+          <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
+            <button
+              onClick={setLink}
+              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                editor.isActive('link') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+              }`}
+              title="Insert Link (Ctrl+K)"
+            >
+              <LinkIcon className="h-4 w-4" />
+            </button>
+            <button
+              onClick={addNote}
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+              title="Insert Note"
+            >
+              <StickyNote className="h-4 w-4" />
+            </button>
+            <button
+              onClick={addHorizontalRule}
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+              title="Insert Horizontal Rule"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Right Side - Document Actions */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Document Actions */}
+          <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
+            <button
                 onClick={() => onToggleTrackChanges?.()}
-                className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                  trackChangesEnabled ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                }`}
-                title="Track Changes"
-              >
-                <Eye className="h-4 w-4" />
-              </button>
-              <button
+              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                trackChangesEnabled ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+              }`}
+              title="Track Changes"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            <button
                 onClick={() => onExportPDF?.()}
-                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-                title="Export to PDF"
-              >
-                <Download className="h-4 w-4" />
-              </button>
-              <button
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+              title="Export to PDF"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+            <button
                 onClick={() => onOpenVersions?.()}
-                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-                title="Version History"
-              >
-                <History className="h-4 w-4" />
-              </button>
-              <button
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+              title="Version History"
+            >
+              <History className="h-4 w-4" />
+            </button>
+            <button
                 onClick={() => onDuplicatePlaybook?.()}
-                className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-                title="Duplicate Playbook"
-              >
-                <Copy className="h-4 w-4" />
-              </button>
-            </div>
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+              title="Duplicate Playbook"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+          </div>
 
-            {/* Marketplace */}
-            <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
-              <button
-                onClick={() => onToggleMarketplace?.()}
-                className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                  isInMarketplace ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                }`}
-                title={isInMarketplace ? "Marketplace Settings" : "Add to Marketplace"}
-              >
-                <Store className="h-4 w-4" />
-              </button>
-            </div>
 
-            {/* Status */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="text-xs text-gray-500 flex items-center gap-2">
-                <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                Auto-save enabled
-              </div>
-              {lastSaved && (
-                <div className="text-xs text-gray-500">
-                  Last saved: {formatLastSaved(lastSaved)}
+            {/* Status - Removed auto-save text, keeping only last saved time if available */}
+            {lastSaved && (
+          <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="text-xs text-gray-500">
+                Last saved: {formatLastSaved(lastSaved)}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -472,7 +452,7 @@ export default function PlaybookEditor({
                   title={color}
                 />
               ))}
-            </div>
+      </div>
           </div>,
           document.body
         )}
@@ -499,7 +479,7 @@ export default function PlaybookEditor({
                   title={color}
                 />
               ))}
-            </div>
+    </div>
           </div>,
           document.body
         )}
@@ -630,7 +610,7 @@ export default function PlaybookEditor({
                   <option value="72px">72px</option>
                 </select>
               </div>
-            </div>
+      </div>
           </div>,
           document.body
         )}
@@ -638,8 +618,25 @@ export default function PlaybookEditor({
 
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto">
-        <EditorContent
-          editor={editor}
+        {/* Saved Status - Sticky at top of editor */}
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-2">
+          <div className="flex items-center justify-end">
+            {isSaving ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <div className="h-3 w-3 rounded-full bg-yellow-500 animate-pulse"></div>
+                <span>Saving...</span>
+              </div>
+            ) : lastSaved ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                <span>Saved</span>
+              </div>
+            ) : null}
+        </div>
+      </div>
+        
+        <EditorContent 
+          editor={editor} 
           className="min-h-[500px] p-6 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-20"
         />
       </div>
@@ -666,7 +663,7 @@ export function extractTableOfContents(content: string | any): Array<{ id: strin
         const level = node.attrs?.level || 1
         const title = node.content?.[0]?.text || ''
         const sectionNumber = sectionNumbers.slice(0, level).join('.')
-        
+
         toc.push({
           id: `heading-${toc.length}`,
           title,
@@ -683,7 +680,7 @@ export function extractTableOfContents(content: string | any): Array<{ id: strin
         node.content.forEach((child: any) => traverse(child, [...sectionNumbers]))
       }
     }
-    
+
     traverse(parsed)
     return toc
   } catch (error) {

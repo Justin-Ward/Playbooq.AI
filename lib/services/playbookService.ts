@@ -15,6 +15,11 @@ export interface PlaybookData {
   owner_id?: string
   created_at?: string
   updated_at?: string
+  is_marketplace?: boolean
+  price?: number
+  preview_content?: any
+  total_purchases?: number
+  average_rating?: number
 }
 
 export interface PlaybookListItem {
@@ -26,6 +31,10 @@ export interface PlaybookListItem {
   created_at: string
   updated_at: string
   owner_id: string
+  is_marketplace?: boolean
+  price?: number
+  total_purchases?: number
+  average_rating?: number
 }
 
 export class PlaybookService {
@@ -46,7 +55,12 @@ export class PlaybookService {
           description: playbookData.description || null,
           tags: playbookData.tags || [],
           is_public: playbookData.is_public || false,
-          owner_id: playbookData.owner_id || null
+          owner_id: playbookData.owner_id || null,
+          is_marketplace: playbookData.is_marketplace || false,
+          price: playbookData.price || 0,
+          preview_content: playbookData.preview_content || null,
+          total_purchases: playbookData.total_purchases || 0,
+          average_rating: playbookData.average_rating || 0
         })
         .select()
         .single()
@@ -109,6 +123,11 @@ export class PlaybookService {
           description: updates.description,
           tags: updates.tags,
           is_public: updates.is_public,
+          is_marketplace: updates.is_marketplace,
+          price: updates.price,
+          preview_content: updates.preview_content,
+          total_purchases: updates.total_purchases,
+          average_rating: updates.average_rating,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)

@@ -26,9 +26,11 @@ import PlaybookSidebar from '@/components/PlaybookSidebar'
 import CollaboratorsModal from '@/components/CollaboratorsModal'
 import PlaybookChat from '@/components/PlaybookChat'
 import LoadingSkeleton from '@/components/LoadingSkeleton'
+import MarketplaceModal from '@/components/MarketplaceModal'
 import { useEnhancedPlaybookManager } from '@/lib/hooks/useEnhancedPlaybookManager'
 import { useGeneratePlaybook } from '@/lib/hooks/useGeneratePlaybook'
 import { LocalPlaybookService } from '@/lib/services/localPlaybookService'
+import { playbookService } from '@/lib/services/playbookService'
 import Link from 'next/link'
 
 export default function PlaybooksPage() {
@@ -37,6 +39,7 @@ export default function PlaybooksPage() {
   const {
     playbookList,
     currentPlaybook,
+    setCurrentPlaybook,
     loadPlaybook,
     savePlaybook,
     deletePlaybook,
@@ -69,6 +72,7 @@ export default function PlaybooksPage() {
   const [showSignInPrompt, setShowSignInPrompt] = useState(false)
   const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [showMarketplaceModal, setShowMarketplaceModal] = useState(false)
   const [tableOfContents, setTableOfContents] = useState<Array<{ id: string; title: string; level: number; sectionNumber: string }>>([])
 
   const titleInputRef = useRef<HTMLInputElement>(null)
@@ -101,6 +105,39 @@ export default function PlaybooksPage() {
     setPlaybookTitle(title)
     updateTitle(title)
   }, [updateTitle])
+
+  const handleMarketplaceSave = async (data: { isInMarketplace: boolean; price: number }) => {
+    if (!currentPlaybook || !currentPlaybook.id) return
+
+    try {
+      console.log('handleMarketplaceSave called with:', data)
+      console.log('Current playbook:', currentPlaybook)
+
+      // Update the playbook with marketplace settings
+      const updatedPlaybook = {
+        is_marketplace: data.isInMarketplace,
+        price: data.price
+      }
+
+      console.log('Updating playbook with:', updatedPlaybook)
+
+      // Update in database (not save - this updates existing playbook)
+      const result = await playbookService.updatePlaybook(currentPlaybook.id, updatedPlaybook)
+      
+      console.log('Update result:', result)
+      
+      // Update the current playbook state
+      setCurrentPlaybook(result)
+      
+      // Refresh the playbook list to show updated marketplace status
+      await refreshPlaybookList()
+      
+      console.log('Marketplace save completed successfully')
+    } catch (error) {
+      console.error('Error saving marketplace settings:', error)
+      throw error
+    }
+  }
 
   const handlePlaybookGenerated = useCallback(async (generatedResponse: any) => {
     console.log('Playbook generated response:', generatedResponse)
@@ -283,17 +320,19 @@ export default function PlaybooksPage() {
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Save Status */}
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  {isSaving ? (
-                    <span className="text-xs text-gray-500">Saving...</span>
-                  ) : lastSaved ? (
-                    <>
-                      <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                      <span>Saved</span>
-                    </>
-                  ) : null}
-                </div>
+                {/* Marketplace Button */}
+                {currentPlaybook && (
+                  <button
+                    onClick={() => setShowMarketplaceModal(true)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      currentPlaybook.is_marketplace
+                        ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {currentPlaybook.is_marketplace ? 'Marketplace Settings' : 'Add to Marketplace'}
+                  </button>
+                )}
                 <button
                   onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
                   className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
@@ -483,6 +522,19 @@ export default function PlaybooksPage() {
         currentUserId={user?.id || ''}
         currentUserEmail={user?.primaryEmailAddress?.emailAddress || ''}
         currentUserName={user?.fullName || user?.firstName || 'User'}
+      />
+
+      {/* Marketplace Modal */}
+      <MarketplaceModal
+        isOpen={showMarketplaceModal}
+        onClose={() => setShowMarketplaceModal(false)}
+        playbook={currentPlaybook ? {
+          id: currentPlaybook.id,
+          title: currentPlaybook.title,
+          is_marketplace: currentPlaybook.is_marketplace,
+          price: currentPlaybook.price
+        } : null}
+        onSave={handleMarketplaceSave}
       />
     </>
   )
