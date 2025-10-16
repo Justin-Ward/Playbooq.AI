@@ -12,8 +12,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Grid3X3,
-  List,
   SortAsc,
   SortDesc
 } from 'lucide-react'
@@ -67,7 +65,7 @@ export default function MarketplacePage() {
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [priceFilter, setPriceFilter] = useState('All')
   const [sortBy, setSortBy] = useState('relevance')
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -238,21 +236,6 @@ export default function MarketplacePage() {
                 ))}
               </select>
 
-              {/* View Mode Toggle */}
-              <div className="flex border border-gray-300 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-3 ${viewMode === 'grid' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                >
-                  <Grid3X3 className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-3 ${viewMode === 'list' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                >
-                  <List className="h-5 w-5" />
-                </button>
-              </div>
             </div>
           </div>
 
@@ -325,39 +308,19 @@ export default function MarketplacePage() {
         ) : (
           <>
             {/* Playbook Grid */}
-            <div className={`grid gap-6 ${
-              viewMode === 'grid' 
-                ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' 
-                : 'grid-cols-1'
-            }`}>
+            <div className="grid gap-6 grid-cols-1">
               {paginatedPlaybooks.map((playbook) => (
                 <div
                   key={playbook.id}
-                  className={`bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-200 ${
-                    viewMode === 'list' ? 'flex' : ''
-                  }`}
+                  className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-200 flex"
                 >
-                  {viewMode === 'grid' ? (
-                    // Grid View
-                    <>
-                      <div className="p-6">
-                        <div className="flex items-start justify-between mb-3">
-                          <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
-                            {playbook.title}
-                          </h3>
-                          <button
-                            onClick={() => handleToggleFavorite(playbook.id)}
-                            className={`p-2 rounded-full transition-colors ${
-                              playbook.is_favorited
-                                ? 'text-red-500 hover:text-red-600'
-                                : 'text-gray-400 hover:text-red-500'
-                            }`}
-                          >
-                            <Heart className={`h-5 w-5 ${playbook.is_favorited ? 'fill-current' : ''}`} />
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-2 mb-3">
+                  <div className="p-6 flex-1">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          {playbook.title}
+                        </h3>
+                        <div className="flex items-center gap-2 mb-2">
                           <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
                             {playbook.creator_avatar ? (
                               <img
@@ -373,12 +336,10 @@ export default function MarketplacePage() {
                           </div>
                           <span className="text-sm text-gray-600">{playbook.creator_name}</span>
                         </div>
-
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                        <p className="text-gray-600 text-sm mb-3">
                           {playbook.description || 'No description available'}
                         </p>
-
-                        <div className="flex items-center gap-4 mb-4">
+                        <div className="flex items-center gap-4">
                           <div className="flex items-center gap-1">
                             {renderStars(playbook.average_rating)}
                             <span className="text-sm text-gray-600 ml-1">
@@ -389,111 +350,43 @@ export default function MarketplacePage() {
                             {playbook.total_purchases} purchases
                           </span>
                         </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="text-lg font-bold text-gray-900">
-                            {formatPrice(playbook.price)}
-                          </div>
-                          <div className="flex gap-2">
-                            <Link
-                              href={`/marketplace/${playbook.id}`}
-                              className="px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2"
-                            >
-                              <Eye className="h-4 w-4" />
-                              Preview
-                            </Link>
-                            {playbook.is_purchased ? (
-                              <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm">
-                                Owned
-                              </span>
-                            ) : (
-                              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
-                                <ShoppingCart className="h-4 w-4" />
-                                {playbook.price === 0 ? 'Get Free' : 'Purchase'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
                       </div>
-                    </>
-                  ) : (
-                    // List View
-                    <>
-                      <div className="p-6 flex-1">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                              {playbook.title}
-                            </h3>
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                                {playbook.creator_avatar ? (
-                                  <img
-                                    src={playbook.creator_avatar}
-                                    alt={playbook.creator_name}
-                                    className="w-6 h-6 rounded-full"
-                                  />
-                                ) : (
-                                  <span className="text-xs font-medium text-gray-600">
-                                    {playbook.creator_name?.[0] || 'A'}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-sm text-gray-600">{playbook.creator_name}</span>
-                            </div>
-                            <p className="text-gray-600 text-sm mb-3">
-                              {playbook.description || 'No description available'}
-                            </p>
-                            <div className="flex items-center gap-4">
-                              <div className="flex items-center gap-1">
-                                {renderStars(playbook.average_rating)}
-                                <span className="text-sm text-gray-600 ml-1">
-                                  ({playbook.total_purchases})
-                                </span>
-                              </div>
-                              <span className="text-sm text-gray-500">
-                                {playbook.total_purchases} purchases
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end gap-3">
-                            <button
-                              onClick={() => handleToggleFavorite(playbook.id)}
-                              className={`p-2 rounded-full transition-colors ${
-                                playbook.is_favorited
-                                  ? 'text-red-500 hover:text-red-600'
-                                  : 'text-gray-400 hover:text-red-500'
-                              }`}
-                            >
-                              <Heart className={`h-5 w-5 ${playbook.is_favorited ? 'fill-current' : ''}`} />
+                      <div className="flex flex-col items-end gap-3">
+                        <button
+                          onClick={() => handleToggleFavorite(playbook.id)}
+                          className={`p-2 rounded-full transition-colors ${
+                            playbook.is_favorited
+                              ? 'text-red-500 hover:text-red-600'
+                              : 'text-gray-400 hover:text-red-500'
+                          }`}
+                        >
+                          <Heart className={`h-5 w-5 ${playbook.is_favorited ? 'fill-current' : ''}`} />
+                        </button>
+                        <div className="text-lg font-bold text-gray-900">
+                          {formatPrice(playbook.price)}
+                        </div>
+                        <div className="flex gap-2">
+                          <Link
+                            href={`/marketplace/${playbook.id}`}
+                            className="px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2"
+                          >
+                            <Eye className="h-4 w-4" />
+                            Preview
+                          </Link>
+                          {playbook.is_purchased ? (
+                            <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm">
+                              Owned
+                            </span>
+                          ) : (
+                            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                              <ShoppingCart className="h-4 w-4" />
+                              {playbook.price === 0 ? 'Get Free' : 'Purchase'}
                             </button>
-                            <div className="text-lg font-bold text-gray-900">
-                              {formatPrice(playbook.price)}
-                            </div>
-                            <div className="flex gap-2">
-                              <Link
-                                href={`/marketplace/${playbook.id}`}
-                                className="px-4 py-2 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2"
-                              >
-                                <Eye className="h-4 w-4" />
-                                Preview
-                              </Link>
-                              {playbook.is_purchased ? (
-                                <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm">
-                                  Owned
-                                </span>
-                              ) : (
-                                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
-                                  <ShoppingCart className="h-4 w-4" />
-                                  {playbook.price === 0 ? 'Get Free' : 'Purchase'}
-                                </button>
-                              )}
-                            </div>
-                          </div>
+                          )}
                         </div>
                       </div>
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

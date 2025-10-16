@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { useSearchParams } from 'next/navigation'
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  ChevronDown, 
   ChevronUp,
   FileText,
   Star,
@@ -74,7 +74,7 @@ export default function PlaybooksPage() {
   const [showChat, setShowChat] = useState(false)
   const [showMarketplaceModal, setShowMarketplaceModal] = useState(false)
   const [tableOfContents, setTableOfContents] = useState<Array<{ id: string; title: string; level: number; sectionNumber: string }>>([])
-
+  
   const titleInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function PlaybooksPage() {
 
   const handleTitleChange = useCallback((title: string) => {
     setPlaybookTitle(title)
-    updateTitle(title)
+      updateTitle(title)
   }, [updateTitle])
 
   const handleMarketplaceSave = async (data: { isInMarketplace: boolean; price: number }) => {
@@ -199,7 +199,7 @@ export default function PlaybooksPage() {
       // Find the editor content area
       const editorContainer = document.querySelector('.ProseMirror')
       const editorScrollWrapper = document.querySelector('.editor-content-scroll-wrapper')
-      
+
       if (!editorContainer || !editorScrollWrapper) return
 
       // Find all headings in the editor
@@ -270,56 +270,56 @@ export default function PlaybooksPage() {
   return (
     <>
       <div className="h-screen bg-gray-50 flex overflow-hidden">
-        {/* Left Sidebar - Playbook List */}
-        {!leftSidebarCollapsed && (
+      {/* Left Sidebar - Playbook List */}
+      {!leftSidebarCollapsed && (
           <div className="w-80 flex-shrink-0 h-full overflow-hidden">
-            <PlaybookSidebar
+          <PlaybookSidebar
               onPlaybookSelect={(playbook) => loadPlaybook(playbook.id)}
-              onNewPlaybook={handleNewPlaybook}
-              isAuthenticated={isAuthenticated}
-              tempPlaybookCount={tempPlaybookCount}
-              canCreateMore={canCreateMore}
-              playbookList={playbookList}
-              isLoading={isLoading}
-              error={error}
-              loadPlaybook={loadPlaybook}
-              deletePlaybook={deletePlaybook}
-              duplicatePlaybook={duplicatePlaybook}
+            onNewPlaybook={handleNewPlaybook}
+            isAuthenticated={isAuthenticated}
+            tempPlaybookCount={tempPlaybookCount}
+            canCreateMore={canCreateMore}
+            playbookList={playbookList}
+            isLoading={isLoading}
+            error={error}
+            loadPlaybook={loadPlaybook}
+            deletePlaybook={deletePlaybook}
+            duplicatePlaybook={duplicatePlaybook}
               searchPlaybooks={searchPlaybooks}
               refreshPlaybookList={refreshPlaybookList}
-              clearError={clearError}
+            clearError={clearError}
               tableOfContents={tableOfContents}
               onScrollToHeading={scrollToHeading}
-            />
-          </div>
-        )}
+          />
+        </div>
+      )}
 
-        {/* Main Content Area */}
+      {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 h-full">
-          {/* Top Bar */}
+        {/* Top Bar */}
           <div className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
-                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  {leftSidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-gray-400" />
-                  <input
-                    ref={titleInputRef}
-                    type="text"
-                    value={playbookTitle}
-                    onChange={(e) => handleTitleChange(e.target.value)}
-                    className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0"
-                  />
-                </div>
-              </div>
-
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
+                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                {leftSidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              </button>
+              
               <div className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-gray-400" />
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={playbookTitle}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0"
+                />
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2">
                 {/* Marketplace Button */}
                 {currentPlaybook && (
                   <button
@@ -333,15 +333,15 @@ export default function PlaybooksPage() {
                     {currentPlaybook.is_marketplace ? 'Marketplace Settings' : 'Add to Marketplace'}
                   </button>
                 )}
-                <button
-                  onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
-                  className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  {rightSidebarCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
-                </button>
-              </div>
+              <button
+                onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
+                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                {rightSidebarCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+              </button>
             </div>
           </div>
+        </div>
 
           {/* Rich Text Editor Content Area */}
           <div className="flex-1 flex flex-col overflow-y-auto min-h-0 editor-content-scroll-wrapper">
@@ -356,35 +356,35 @@ export default function PlaybooksPage() {
                 className="flex-1 flex flex-col"
               />
             )}
-          </div>
-        </div>
-
-        {/* Right Sidebar */}
-        {!rightSidebarCollapsed && (
-          <div className="w-80 flex-shrink-0 bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden">
-            {/* AI Generation */}
-            <div className="flex-1 flex flex-col min-h-0">
-              <button
-                onClick={() => setAiGenerationExpanded(!aiGenerationExpanded)}
-                className="p-3 border-b border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors flex-shrink-0"
-              >
-                <h3 className="text-sm font-semibold text-gray-900">Generate with AI</h3>
-                {aiGenerationExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-gray-500" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-500" />
-                )}
-              </button>
-
-              {aiGenerationExpanded && (
-                <div className="flex-1 p-3 overflow-y-auto min-h-0">
-                  <PlaybookGenerator
-                    onPlaybookGenerated={handlePlaybookGenerated}
-                    existingContent={editorContent}
-                  />
-                </div>
-              )}
             </div>
+          </div>
+
+          {/* Right Sidebar */}
+          {!rightSidebarCollapsed && (
+          <div className="w-80 flex-shrink-0 bg-white border-l border-gray-200 flex flex-col h-full overflow-hidden">
+              {/* AI Generation */}
+            <div className="flex-1 flex flex-col min-h-0">
+                <button
+                  onClick={() => setAiGenerationExpanded(!aiGenerationExpanded)}
+                className="p-3 border-b border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors flex-shrink-0"
+                >
+                  <h3 className="text-sm font-semibold text-gray-900">Generate with AI</h3>
+                  {aiGenerationExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-gray-500" />
+                  )}
+                </button>
+                
+                {aiGenerationExpanded && (
+                <div className="flex-1 p-3 overflow-y-auto min-h-0">
+                    <PlaybookGenerator
+                      onPlaybookGenerated={handlePlaybookGenerated}
+                      existingContent={editorContent}
+                    />
+                  </div>
+                )}
+              </div>
 
             {/* Collaborators Management Section */}
             <div className="border-t border-gray-200 flex-shrink-0">
@@ -435,8 +435,8 @@ export default function PlaybooksPage() {
               isOpen={showChat}
               onToggle={() => setShowChat(!showChat)}
             />
-          </div>
-        )}
+            </div>
+          )}
       </div>
 
       {/* Sign In Prompt Modal */}

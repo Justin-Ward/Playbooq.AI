@@ -75,6 +75,7 @@ export default function MarketplaceModal({
     }
   }
 
+
   const handlePriceChange = (value: string) => {
     const numValue = parseFloat(value) || 0
     setPrice(Math.max(0, numValue)) // Ensure price is not negative
@@ -97,6 +98,13 @@ export default function MarketplaceModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+        
+        {/* Playbook Title */}
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <h3 className="text-base font-medium text-gray-900 truncate" title={playbook.title}>
+            {playbook.title}
+          </h3>
+        </div>
 
         {/* Content */}
         <div className="p-6 space-y-6">
@@ -105,7 +113,17 @@ export default function MarketplaceModal({
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-yellow-800">
-                If you have confidential content in this playbook, we recommend creating a duplicate and removing that confidential content before posting to the Marketplace.
+                If you'd like to remove certain content from your playbook before publishing to the Marketplace, we recommend creating a new version by clicking 'Duplicate' in the toolbar and editing that version before publishing to the Marketplace.
+              </p>
+            </div>
+          </div>
+
+          {/* Auto Update Notice */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-800">
+                Any changes you make to your playbook content will automatically update in the Marketplace.
               </p>
             </div>
           </div>

@@ -105,27 +105,36 @@ export default function PlaybookEditor({
     },
   })
 
-  // Update editor content when content prop changes
+  // Update editor content when content prop changes (but not when it's from editor itself)
   useEffect(() => {
     if (editor && content !== undefined) {
       console.log('Updating editor content:', typeof content, content ? (typeof content === 'string' ? content.substring(0, 100) : JSON.stringify(content).substring(0, 100)) : 'empty')
       
       try {
-        // If content is a string, try to parse it as JSON first
+        // Get current editor content to compare
+        const currentContent = editor.getJSON()
+        let newContent
+        
+        // Parse the incoming content
         if (typeof content === 'string') {
           try {
-            const parsed = JSON.parse(content)
-            editor.commands.setContent(parsed)
+            newContent = JSON.parse(content)
           } catch {
             // If it's not JSON, treat it as plain text
-            editor.commands.setContent(content)
+            newContent = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: content }] }] }
           }
         } else if (content) {
-          // If content is already an object, use it directly
-          editor.commands.setContent(content)
+          newContent = content
         } else {
-          // Clear the editor if content is empty
-          editor.commands.clearContent()
+          newContent = { type: 'doc', content: [] }
+        }
+        
+        // Only update if content is actually different
+        if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
+          console.log('Content is different, updating editor')
+          editor.commands.setContent(newContent)
+        } else {
+          console.log('Content is the same, skipping update')
         }
       } catch (error) {
         console.error('Error updating editor content:', error)
@@ -289,7 +298,7 @@ export default function PlaybookEditor({
                   T
                 </button>
               </div>
-            </div>
+          </div>
 
           {/* Text Alignment */}
           <div className="flex items-center gap-1 border-r border-gray-300 pr-2">

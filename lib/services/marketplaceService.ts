@@ -412,6 +412,32 @@ class MarketplaceService {
       throw error
     }
   }
+
+  /**
+   * Submit a rating and review for a playbook
+   */
+  async submitRating(playbookId: string, userId: string, rating: number, review?: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('marketplace_ratings')
+        .upsert({
+          playbook_id: playbookId,
+          user_id: userId,
+          rating,
+          review: review || null
+        }, {
+          onConflict: 'playbook_id,user_id'
+        })
+
+      if (error) {
+        console.error('Error submitting rating:', error)
+        throw new Error(`Failed to submit rating: ${error.message}`)
+      }
+    } catch (error) {
+      console.error('MarketplaceService.submitRating error:', error)
+      throw error
+    }
+  }
 }
 
 export const marketplaceService = new MarketplaceService()
