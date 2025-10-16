@@ -70,12 +70,13 @@ export default function MarketplaceDetailPage() {
         setRatings(ratingsData)
 
         // Generate description, table of contents, and preview content
-        const generatedDescription = generateDescription(playbookData.content)
+        // Use stored description if available, otherwise generate from content
+        const finalDescription = playbookData.description || generateDescription(playbookData.content)
         const toc = extractTableOfContents(playbookData.content)
         const preview = generatePreviewContent(playbookData.content, playbookData.price === 0)
         
         
-        setDescription(generatedDescription)
+        setDescription(finalDescription)
         setTableOfContents(toc)
         setPreviewContent(preview)
 
@@ -631,6 +632,7 @@ export default function MarketplaceDetailPage() {
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Description</h3>
                 <p className="text-lg text-gray-700 leading-relaxed">
                   {description || 'No description available.'}
+                  {description && !description.endsWith('...') && '...'}
                 </p>
               </div>
 

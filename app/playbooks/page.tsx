@@ -106,33 +106,62 @@ export default function PlaybooksPage() {
       updateTitle(title)
   }, [updateTitle])
 
-  const handleMarketplaceSave = async (data: { isInMarketplace: boolean; price: number }) => {
+  const handleMarketplaceSave = async (data: { isInMarketplace: boolean; price: number; description?: string }) => {
     if (!currentPlaybook || !currentPlaybook.id) return
 
     try {
       console.log('handleMarketplaceSave called with:', data)
       console.log('Current playbook:', currentPlaybook)
 
-      // Update the playbook with marketplace settings
-      const updatedPlaybook = {
-        is_marketplace: data.isInMarketplace,
-        price: data.price
+      // Check if this is a temporary playbook
+      const isTemporary = currentPlaybook.id.startsWith('temp-')
+      
+      if (isTemporary) {
+        // For temporary playbooks, we need to save them first to get a real UUID
+        console.log('Temporary playbook detected, saving first...')
+        
+        const savedPlaybook = await savePlaybook({
+          title: currentPlaybook.title,
+          content: currentPlaybook.content,
+          description: data.description || currentPlaybook.description || '',
+          tags: currentPlaybook.tags || [],
+          is_public: false,
+          is_marketplace: data.isInMarketplace,
+          price: data.price
+        })
+        
+        console.log('Playbook saved with marketplace settings:', savedPlaybook)
+        
+        // Update the current playbook state
+        setCurrentPlaybook(savedPlaybook)
+        
+        // Refresh the playbook list
+        await refreshPlaybookList()
+        
+        console.log('Marketplace save completed successfully for temporary playbook')
+      } else {
+        // For existing playbooks, update directly
+        const updatedPlaybook = {
+          is_marketplace: data.isInMarketplace,
+          price: data.price,
+          description: data.description
+        }
+
+        console.log('Updating existing playbook with:', updatedPlaybook)
+
+        // Update in database (not save - this updates existing playbook)
+        const result = await playbookService.updatePlaybook(currentPlaybook.id, updatedPlaybook)
+        
+        console.log('Update result:', result)
+        
+        // Update the current playbook state
+        setCurrentPlaybook(result)
+        
+        // Refresh the playbook list to show updated marketplace status
+        await refreshPlaybookList()
+        
+        console.log('Marketplace save completed successfully for existing playbook')
       }
-
-      console.log('Updating playbook with:', updatedPlaybook)
-
-      // Update in database (not save - this updates existing playbook)
-      const result = await playbookService.updatePlaybook(currentPlaybook.id, updatedPlaybook)
-      
-      console.log('Update result:', result)
-      
-      // Update the current playbook state
-      setCurrentPlaybook(result)
-      
-      // Refresh the playbook list to show updated marketplace status
-      await refreshPlaybookList()
-      
-      console.log('Marketplace save completed successfully')
     } catch (error) {
       console.error('Error saving marketplace settings:', error)
       throw error
@@ -532,7 +561,9 @@ export default function PlaybooksPage() {
           id: currentPlaybook.id,
           title: currentPlaybook.title,
           is_marketplace: currentPlaybook.is_marketplace,
-          price: currentPlaybook.price
+          price: currentPlaybook.price,
+          description: currentPlaybook.description,
+          content: currentPlaybook.content
         } : null}
         onSave={handleMarketplaceSave}
       />

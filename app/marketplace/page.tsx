@@ -320,36 +320,31 @@ export default function MarketplacePage() {
                         <h3 className="text-lg font-semibold text-gray-900 mb-2">
                           {playbook.title}
                         </h3>
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                            {playbook.creator_avatar ? (
-                              <img
-                                src={playbook.creator_avatar}
-                                alt={playbook.creator_name}
-                                className="w-6 h-6 rounded-full"
-                              />
-                            ) : (
-                              <span className="text-xs font-medium text-gray-600">
-                                {playbook.creator_name?.[0] || 'A'}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-sm text-gray-600">{playbook.creator_name}</span>
-                        </div>
-                        <p className="text-gray-600 text-sm mb-3">
-                          {playbook.description || 'No description available'}
-                        </p>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3 mb-3">
                           <div className="flex items-center gap-1">
                             {renderStars(playbook.average_rating)}
-                            <span className="text-sm text-gray-600 ml-1">
-                              ({playbook.total_purchases})
-                            </span>
                           </div>
-                          <span className="text-sm text-gray-500">
-                            {playbook.total_purchases} purchases
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 bg-gray-300 rounded-full flex items-center justify-center">
+                              {playbook.creator_avatar ? (
+                                <img
+                                  src={playbook.creator_avatar}
+                                  alt={playbook.creator_name}
+                                  className="w-5 h-5 rounded-full"
+                                />
+                              ) : (
+                                <span className="text-xs font-medium text-gray-600">
+                                  {playbook.creator_name?.[0] || 'A'}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-sm text-gray-600">{playbook.creator_name}</span>
+                          </div>
                         </div>
+                        <p className="text-gray-600 text-sm">
+                          {playbook.description || 'No description available'}
+                          {playbook.description && !playbook.description.endsWith('...') && '...'}
+                        </p>
                       </div>
                       <div className="flex flex-col items-end gap-3">
                         <button
