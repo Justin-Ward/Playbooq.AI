@@ -45,12 +45,16 @@ class MarketplaceService {
 
             return {
               ...playbook,
+              // Use preview_content for marketplace display, fallback to content if preview_content doesn't exist
+              content: playbook.preview_content || playbook.content,
               creator_name: profileData?.display_name || 'Anonymous',
               creator_avatar: profileData?.avatar_url || null
             }
           } catch (err) {
             return {
               ...playbook,
+              // Use preview_content for marketplace display, fallback to content if preview_content doesn't exist
+              content: playbook.preview_content || playbook.content,
               creator_name: 'Anonymous',
               creator_avatar: null
             }
@@ -135,12 +139,16 @@ class MarketplaceService {
 
             return {
               ...playbook,
+              // Use preview_content for marketplace display, fallback to content if preview_content doesn't exist
+              content: playbook.preview_content || playbook.content,
               creator_name: profileData?.display_name || 'Anonymous',
               creator_avatar: profileData?.avatar_url || null
             }
           } catch (err) {
             return {
               ...playbook,
+              // Use preview_content for marketplace display, fallback to content if preview_content doesn't exist
+              content: playbook.preview_content || playbook.content,
               creator_name: 'Anonymous',
               creator_avatar: null
             }
@@ -324,12 +332,16 @@ class MarketplaceService {
 
             return {
               ...playbook,
+              // Use preview_content for marketplace display, fallback to content if preview_content doesn't exist
+              content: playbook.preview_content || playbook.content,
               creator_name: profileData?.display_name || 'Anonymous',
               creator_avatar: profileData?.avatar_url || null
             }
           } catch (err) {
             return {
               ...playbook,
+              // Use preview_content for marketplace display, fallback to content if preview_content doesn't exist
+              content: playbook.preview_content || playbook.content,
               creator_name: 'Anonymous',
               creator_avatar: null
             }
@@ -374,12 +386,16 @@ class MarketplaceService {
 
         return {
           ...data,
+          // Use preview_content for marketplace display, fallback to content if preview_content doesn't exist
+          content: data.preview_content || data.content,
           creator_name: profileData?.display_name || 'Anonymous',
           creator_avatar: profileData?.avatar_url || null
         }
       } catch (err) {
         return {
           ...data,
+          // Use preview_content for marketplace display, fallback to content if preview_content doesn't exist
+          content: data.preview_content || data.content,
           creator_name: 'Anonymous',
           creator_avatar: null
         }

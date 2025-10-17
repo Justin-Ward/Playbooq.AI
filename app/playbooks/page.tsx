@@ -106,7 +106,7 @@ export default function PlaybooksPage() {
       updateTitle(title)
   }, [updateTitle])
 
-  const handleMarketplaceSave = async (data: { isInMarketplace: boolean; price: number; description?: string }) => {
+  const handleMarketplaceSave = async (data: { isInMarketplace: boolean; price: number; description?: string; updateContent?: boolean }) => {
     if (!currentPlaybook || !currentPlaybook.id) return
 
     try {
@@ -127,7 +127,9 @@ export default function PlaybooksPage() {
           tags: currentPlaybook.tags || [],
           is_public: false,
           is_marketplace: data.isInMarketplace,
-          price: data.price
+          price: data.price,
+          // Set preview_content to current content when adding to marketplace or when explicitly updating content
+          preview_content: (data.isInMarketplace || data.updateContent) ? currentPlaybook.content : null
         })
         
         console.log('Playbook saved with marketplace settings:', savedPlaybook)
@@ -144,7 +146,9 @@ export default function PlaybooksPage() {
         const updatedPlaybook = {
           is_marketplace: data.isInMarketplace,
           price: data.price,
-          description: data.description
+          description: data.description,
+          // Set preview_content to current content when adding to marketplace or when explicitly updating content
+          preview_content: (data.isInMarketplace || data.updateContent) ? currentPlaybook.content : null
         }
 
         console.log('Updating existing playbook with:', updatedPlaybook)
@@ -326,9 +330,9 @@ export default function PlaybooksPage() {
       {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* Top Bar */}
-          <div className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0 relative">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3 flex-shrink-0">
               <button
                 onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
                 className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
@@ -337,18 +341,23 @@ export default function PlaybooksPage() {
               </button>
               
               <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-gray-400" />
+                <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
                 <input
                   ref={titleInputRef}
                   type="text"
                   value={playbookTitle}
                   onChange={(e) => handleTitleChange(e.target.value)}
-                  className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0"
+                  className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0 min-w-0 flex-1"
+                  style={{ 
+                    wordBreak: 'break-word', 
+                    overflowWrap: 'anywhere',
+                    whiteSpace: 'normal'
+                  }}
                 />
                 </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
                 {/* Marketplace Button */}
                 {currentPlaybook && (
                   <button
@@ -383,6 +392,8 @@ export default function PlaybooksPage() {
                 editable={true}
                 placeholder="Start typing your playbook here, or use the AI generation in the right sidebar to get started..."
                 className="flex-1 flex flex-col"
+                isSaving={isSaving}
+                lastSaved={lastSaved}
               />
             )}
             </div>

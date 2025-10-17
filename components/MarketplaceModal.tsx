@@ -14,7 +14,7 @@ interface MarketplaceModalProps {
     description?: string
     content?: any
   } | null
-  onSave: (data: { isInMarketplace: boolean; price: number; description?: string }) => Promise<void>
+  onSave: (data: { isInMarketplace: boolean; price: number; description?: string; updateContent?: boolean }) => Promise<void>
 }
 
 export default function MarketplaceModal({
@@ -90,7 +90,7 @@ export default function MarketplaceModal({
     }
   }, [isOpen, playbook])
 
-  const handleSave = async () => {
+  const handleSave = async (updateContent: boolean = false) => {
     if (!playbook) return
 
     setIsLoading(true)
@@ -100,15 +100,21 @@ export default function MarketplaceModal({
       console.log('Marketplace save:', {
         currentMarketplaceStatus: playbook.is_marketplace,
         priceInDollars: price,
-        priceInCents: Math.round(price * 100)
+        priceInCents: Math.round(price * 100),
+        updateContent
       })
 
       await onSave({
         isInMarketplace: true, // Always add to marketplace when using Save button
         price: Math.round(price * 100), // Convert dollars to cents
-        description: description.trim() || undefined // Only include if not empty
+        description: description.trim() || undefined, // Only include if not empty
+        updateContent // Pass the updateContent flag
       })
-      onClose()
+      
+      // Only close modal if not just updating content
+      if (!updateContent) {
+        onClose()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save marketplace settings')
     } finally {
@@ -180,13 +186,24 @@ export default function MarketplaceModal({
             </div>
           </div>
 
-          {/* Auto Update Notice */}
+          {/* Manual Update Notice */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-blue-800">
-                Any changes you make to your playbook content will automatically update in the Marketplace.
-              </p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-blue-800">
+                  Any changes you make to your playbook content will NOT automatically update in the Marketplace. To update the marketplace version, click "Update Content" below.
+                </p>
+              </div>
+              {playbook?.is_marketplace && (
+                <button
+                  onClick={() => handleSave(true)}
+                  disabled={isLoading || isRemoving}
+                  className="px-3 py-1 text-xs font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                >
+                  {isLoading ? 'Updating...' : 'Update Content'}
+                </button>
+              )}
             </div>
           </div>
 

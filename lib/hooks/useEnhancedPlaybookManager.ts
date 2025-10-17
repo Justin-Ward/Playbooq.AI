@@ -89,7 +89,7 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
           throw new Error('Temporary playbook not found')
         }
         setCurrentPlaybook(playbook)
-        setLastSaved(new Date())
+        setLastSaved(new Date(playbook.updated_at))
         hasUnsavedChangesRef.current = false
         console.log('Temp playbook loaded successfully:', playbook.title)
       } else {
@@ -121,7 +121,7 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
         }
         
         setCurrentPlaybook(playbook)
-        setLastSaved(new Date())
+        setLastSaved(new Date(playbook.updated_at))
         hasUnsavedChangesRef.current = false
         console.log('Remote playbook loaded successfully:', playbook.title)
         // console.log('Playbook marketplace data:', {

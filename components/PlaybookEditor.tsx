@@ -129,10 +129,13 @@ export default function PlaybookEditor({
           newContent = { type: 'doc', content: [] }
         }
         
-        // Only update if content is actually different
-        if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
-          console.log('Content is different, updating editor')
+        // Only update if content is actually different AND the editor is not currently focused
+        // This prevents cursor reset when user is actively typing
+        if (JSON.stringify(currentContent) !== JSON.stringify(newContent) && !editor.isFocused) {
+          console.log('Content is different and editor not focused, updating editor')
           editor.commands.setContent(newContent)
+        } else if (JSON.stringify(currentContent) !== JSON.stringify(newContent)) {
+          console.log('Content is different but editor is focused, skipping update to preserve cursor')
         } else {
           console.log('Content is the same, skipping update')
         }
@@ -207,6 +210,21 @@ export default function PlaybookEditor({
       {/* Editor Toolbar */}
       <div className="border-b border-gray-200 bg-gray-50 p-2 sticky top-0 z-20 flex-shrink-0">
         <div className="flex items-center gap-2 overflow-x-auto overflow-y-visible toolbar-scroll">
+        {/* Saved Status - Far Left */}
+        <div className="flex items-center gap-2 flex-shrink-0 mr-2">
+          {isSaving ? (
+            <div className="flex items-center gap-2 text-sm text-yellow-600">
+              <div className="h-3 w-3 rounded-full bg-yellow-500 animate-pulse"></div>
+              <span>Saving...</span>
+            </div>
+          ) : lastSaved ? (
+            <div className="flex items-center gap-2 text-sm text-green-600">
+              <div className="h-3 w-3 rounded-full bg-green-500"></div>
+              <span>Saved</span>
+            </div>
+          ) : null}
+        </div>
+
         {/* Left Side - Formatting Tools */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {/* Text Formatting */}
@@ -627,23 +645,6 @@ export default function PlaybookEditor({
 
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto">
-        {/* Saved Status - Sticky at top of editor */}
-        <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-2">
-          <div className="flex items-center justify-end">
-            {isSaving ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <div className="h-3 w-3 rounded-full bg-yellow-500 animate-pulse"></div>
-                <span>Saving...</span>
-              </div>
-            ) : lastSaved ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <div className="h-3 w-3 rounded-full bg-green-500"></div>
-                <span>Saved</span>
-              </div>
-            ) : null}
-        </div>
-      </div>
-        
         <EditorContent 
           editor={editor} 
           className="min-h-[500px] p-6 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-20"

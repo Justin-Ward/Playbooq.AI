@@ -147,7 +147,7 @@ export default function PlaybookSidebar({
           >
             Playbooq.AI
           </Link>
-          <div className="h-6 w-px bg-gray-300"></div>
+          <div className="h-6 w-px bg-gray-300 flex-shrink-0"></div>
           <Link 
             href="/marketplace" 
             className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
@@ -158,7 +158,7 @@ export default function PlaybookSidebar({
       </div>
 
       {/* Dividing Line */}
-      <div className="border-b border-gray-200"></div>
+      <div className="border-b border-gray-300"></div>
 
       {/* My Playbooks Section */}
       <div className="p-4 border-b border-gray-200">
@@ -265,28 +265,28 @@ export default function PlaybookSidebar({
                     selectedPlaybookId === playbook.id ? 'bg-blue-50 border-r-2 border-blue-500' : ''
                   }`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <h3 
-                        className="text-sm font-medium text-gray-900 truncate"
-                        title={playbook.title}
-                      >
-                        {playbook.title}
-                      </h3>
-                      {playbook.description && (
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                          {playbook.description}
-                        </p>
-                      )}
-                    </div>
+                  <div className="relative" style={{ width: '100%', minWidth: 0 }}>
+                    <h3 
+                      className="text-sm font-medium text-gray-900 leading-tight pr-6 break-words overflow-wrap-anywhere"
+                      style={{ 
+                        wordBreak: 'break-word', 
+                        overflowWrap: 'anywhere',
+                        whiteSpace: 'normal',
+                        display: 'block',
+                        maxWidth: '100%'
+                      }}
+                      title={playbook.title}
+                    >
+                      {playbook.title}
+                    </h3>
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
                         // Context menu will handle this
                       }}
-                      className="ml-2 p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-0 right-0 p-0.5 text-gray-400 hover:text-gray-600 opacity-60 hover:opacity-100 transition-opacity"
                     >
-                      <MoreVertical className="h-4 w-4" />
+                      <MoreVertical className="h-3 w-3" />
                     </button>
                   </div>
                   
@@ -392,7 +392,7 @@ export default function PlaybookSidebar({
         <div className="flex items-center justify-between text-xs text-gray-500">
           <div className="flex flex-col">
             <span>{playbookList.length} playbook{playbookList.length !== 1 ? 's' : ''}</span>
-            {!isAuthenticated && (
+            {!isAuthenticated && tempPlaybookCount > 0 && (
               <span className="text-amber-600">
                 {tempPlaybookCount} temporary
               </span>
