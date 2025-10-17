@@ -102,7 +102,23 @@ export const Assignment = Mark.create<AssignmentOptions>({
         this.options.HTMLAttributes,
         HTMLAttributes
       ),
-      0,
+      [
+        'span',
+        { style: 'display: inline-flex; align-items: center; gap: 2px;' },
+        [
+          'span',
+          {},
+          0, // The actual text content
+        ],
+        [
+          'span',
+          {
+            style: 'display: inline-block; width: 12px; height: 12px; margin-left: 2px;',
+            'data-assignment-icon': 'true'
+          },
+          '👤', // Small assignment icon
+        ],
+      ],
     ]
   },
 

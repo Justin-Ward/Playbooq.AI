@@ -281,7 +281,7 @@ export default function PlaybookEditor({
         
         if (anySidebarCollapsed) {
           // Any sidebar collapsed: always show widgets in right margin
-          htmlWidget.style.right = '-200px'
+          htmlWidget.style.right = '-500px'
           htmlWidget.style.opacity = '1'
           htmlWidget.style.pointerEvents = 'auto'
         } else {
