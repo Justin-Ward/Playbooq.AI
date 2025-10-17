@@ -280,8 +280,8 @@ export default function PlaybookEditor({
         const htmlWidget = widget as HTMLElement
         
         if (anySidebarCollapsed) {
-          // Any sidebar collapsed: always show widgets in far right margin
-          htmlWidget.style.right = '-400px'
+          // Any sidebar collapsed: always show widgets in right margin
+          htmlWidget.style.right = '-200px'
           htmlWidget.style.opacity = '1'
           htmlWidget.style.pointerEvents = 'auto'
         } else {
@@ -800,7 +800,7 @@ export default function PlaybookEditor({
 
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className={`relative ${(rightSidebarCollapsed || leftSidebarCollapsed) ? 'pr-[420px]' : ''}`}>
+        <div className={`relative ${(rightSidebarCollapsed || leftSidebarCollapsed) ? 'pr-[220px]' : ''}`}>
           <EditorContent 
             editor={editor} 
             className="min-h-[500px] p-6 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-20"
