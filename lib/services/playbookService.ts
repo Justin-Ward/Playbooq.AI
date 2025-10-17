@@ -306,6 +306,37 @@ export class PlaybookService {
       throw error
     }
   }
+
+  /**
+   * Get collaborators for a playbook
+   */
+  async getCollaborators(playbookId: string): Promise<Array<{
+    id: string
+    user_id: string
+    user_name: string
+    user_email: string
+    permission_level: string
+    status: string
+  }>> {
+    try {
+      const { data, error } = await this.supabase
+        .from('collaborators')
+        .select('*')
+        .eq('playbook_id', playbookId)
+        .eq('status', 'accepted')
+        .order('user_name', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching collaborators:', error)
+        throw new Error(`Failed to fetch collaborators: ${error.message}`)
+      }
+
+      return data || []
+    } catch (error) {
+      console.error('PlaybookService.getCollaborators error:', error)
+      throw error
+    }
+  }
 }
 
 // Export singleton instance

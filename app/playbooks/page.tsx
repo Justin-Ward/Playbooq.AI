@@ -74,8 +74,37 @@ export default function PlaybooksPage() {
   const [showChat, setShowChat] = useState(false)
   const [showMarketplaceModal, setShowMarketplaceModal] = useState(false)
   const [tableOfContents, setTableOfContents] = useState<Array<{ id: string; title: string; level: number; sectionNumber: string }>>([])
+  const [playbookCollaborators, setPlaybookCollaborators] = useState<Array<{ id: string; name: string; email: string }>>([])
   
   const titleInputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Fetch collaborators when playbook changes
+  useEffect(() => {
+    const fetchCollaborators = async () => {
+      if (currentPlaybook && currentPlaybook.id && !currentPlaybook.id.startsWith('temp_')) {
+        try {
+          const collaborators = await playbookService.getCollaborators(currentPlaybook.id)
+          const formattedCollaborators = collaborators.map((c: {
+            user_id: string
+            user_name: string
+            user_email: string
+          }) => ({
+            id: c.user_id,
+            name: c.user_name || 'Unknown User',
+            email: c.user_email || ''
+          }))
+          setPlaybookCollaborators(formattedCollaborators)
+        } catch (error) {
+          console.error('Error fetching collaborators:', error)
+          setPlaybookCollaborators([])
+        }
+      } else {
+        setPlaybookCollaborators([])
+      }
+    }
+
+    fetchCollaborators()
+  }, [currentPlaybook?.id])
 
   useEffect(() => {
     if (currentPlaybook) {
@@ -411,6 +440,7 @@ export default function PlaybooksPage() {
                 className="flex-1 flex flex-col"
                 isSaving={isSaving}
                 lastSaved={lastSaved}
+                collaborators={playbookCollaborators}
               />
             )}
             </div>

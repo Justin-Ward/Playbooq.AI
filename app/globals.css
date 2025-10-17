@@ -260,3 +260,35 @@ body {
   scrollbar-width: thin;
   scrollbar-color: #d1d5db #f3f4f6;
 }
+
+/* Assignment Decorations Styles */
+.ProseMirror {
+  position: relative;
+}
+
+.ProseMirror .assignment-decoration {
+  position: absolute !important;
+  pointer-events: auto;
+  user-select: none;
+}
+
+/* Assignment mark styling */
+.ProseMirror mark[data-assignment="true"] {
+  position: relative;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+
+.ProseMirror mark[data-assignment="true"]:hover {
+  filter: brightness(0.95);
+}
+
+/* Ensure proper stacking context for decorations */
+.ProseMirror p,
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror li {
+  position: relative;
+}

@@ -10,13 +10,17 @@ import Underline from '@tiptap/extension-underline'
 import TextAlign from '@tiptap/extension-text-align'
 import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
+import { Assignment, AssignmentAttributes } from '@/lib/extensions/Assignment'
+import { AssignmentDecorations } from '@/lib/extensions/AssignmentDecorations'
+import AssignmentModal from './AssignmentModal'
 import { useState, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { 
   Bold, Italic, Underline as UnderlineIcon, List, ListOrdered,
   IndentDecrease, IndentIncrease, Link as LinkIcon, StickyNote, Minus,
   Eye, Download, History, Copy, Palette, Highlighter,
-  ChevronDown, ChevronRight, AlignLeft, AlignCenter, AlignRight, AlignJustify
+  ChevronDown, ChevronRight, AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  UserCheck
 } from 'lucide-react'
 
 interface PlaybookEditorProps {
@@ -33,6 +37,7 @@ interface PlaybookEditorProps {
       lastSaved?: Date | null
       trackChangesEnabled?: boolean
       onToggleTrackChanges?: () => void
+      collaborators?: Array<{ id: string; name: string; email: string }>
 }
 
 export default function PlaybookEditor({
@@ -48,12 +53,16 @@ export default function PlaybookEditor({
   isSaving = false,
   lastSaved = null,
   trackChangesEnabled = false,
-  onToggleTrackChanges
+  onToggleTrackChanges,
+  collaborators = []
 }: PlaybookEditorProps) {
   const [showTextColorPopup, setShowTextColorPopup] = useState(false)
   const [showHighlightPopup, setShowHighlightPopup] = useState(false)
   const [showTextAlignPopup, setShowTextAlignPopup] = useState(false)
   const [showFontEditorPopup, setShowFontEditorPopup] = useState(false)
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false)
+  const [editingAssignment, setEditingAssignment] = useState<AssignmentAttributes | null>(null)
+  const [assignmentToRemovePos, setAssignmentToRemovePos] = useState<number | null>(null)
   const [buttonPositions, setButtonPositions] = useState<{ textColor?: DOMRect, highlight?: DOMRect, textAlign?: DOMRect, fontEditor?: DOMRect }>({})
 
   const editor = useEditor({
@@ -84,6 +93,16 @@ export default function PlaybookEditor({
         openOnClick: false,
         HTMLAttributes: {
           class: 'text-blue-600 underline cursor-pointer hover:text-blue-800',
+        },
+      }),
+      Assignment,
+      AssignmentDecorations.configure({
+        onEdit: (attrs) => {
+          setEditingAssignment(attrs)
+          setShowAssignmentModal(true)
+        },
+        onRemove: (pos) => {
+          setAssignmentToRemovePos(pos)
         },
       }),
     ],
@@ -195,6 +214,38 @@ export default function PlaybookEditor({
     const hours = Math.floor(minutes / 60)
     if (hours < 24) return `${hours}h ago`
     return date.toLocaleDateString()
+  }
+
+  const handleAssignmentSave = (attributes: AssignmentAttributes) => {
+    if (editor) {
+      editor.chain().focus().addAssignment(attributes).run()
+      setEditingAssignment(null)
+    }
+  }
+
+  const handleAssignmentRemove = () => {
+    if (editor) {
+      editor.chain().focus().removeAssignment().run()
+    }
+  }
+
+  // Handle removal from decoration widget
+  useEffect(() => {
+    if (assignmentToRemovePos !== null && editor) {
+      // Set selection to the assignment position and remove the mark
+      editor.chain()
+        .setTextSelection(assignmentToRemovePos)
+        .removeAssignment()
+        .run()
+      
+      setAssignmentToRemovePos(null)
+    }
+  }, [assignmentToRemovePos, editor])
+
+  // Reset editing assignment when modal closes
+  const handleModalClose = () => {
+    setShowAssignmentModal(false)
+    setEditingAssignment(null)
   }
 
   if (!editor) {
@@ -390,6 +441,15 @@ export default function PlaybookEditor({
               title="Insert Link (Ctrl+K)"
             >
               <LinkIcon className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setShowAssignmentModal(true)}
+              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                editor.isActive('assignment') ? 'bg-green-100 text-green-600' : 'text-gray-600'
+              }`}
+              title="Create Assignment"
+            >
+              <UserCheck className="h-4 w-4" />
             </button>
             <button
               onClick={addNote}
@@ -645,11 +705,22 @@ export default function PlaybookEditor({
 
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto">
-        <EditorContent 
-          editor={editor} 
-          className="min-h-[500px] p-6 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-20"
-        />
+        <div className="relative pr-[220px]"> {/* Add right padding for assignment widgets */}
+          <EditorContent 
+            editor={editor} 
+            className="min-h-[500px] p-6 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-20"
+          />
+        </div>
       </div>
+
+      {/* Assignment Modal */}
+      <AssignmentModal
+        isOpen={showAssignmentModal}
+        onClose={handleModalClose}
+        onSave={handleAssignmentSave}
+        currentAttributes={editingAssignment || editor.getAttributes('assignment')}
+        availableUsers={collaborators}
+      />
     </div>
   )
 }
