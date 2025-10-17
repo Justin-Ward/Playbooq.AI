@@ -75,7 +75,7 @@ export default function PlaybooksPage() {
   const [showMarketplaceModal, setShowMarketplaceModal] = useState(false)
   const [tableOfContents, setTableOfContents] = useState<Array<{ id: string; title: string; level: number; sectionNumber: string }>>([])
   
-  const titleInputRef = useRef<HTMLInputElement>(null)
+  const titleInputRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (currentPlaybook) {
@@ -300,6 +300,19 @@ export default function PlaybooksPage() {
     }
   }, [user, isUserLoaded]);
 
+  // Auto-resize textarea for title input
+  useEffect(() => {
+    if (titleInputRef.current) {
+      const textarea = titleInputRef.current;
+      // Reset height to auto to get the correct scrollHeight
+      textarea.style.height = 'auto';
+      // Set height to scrollHeight, but cap it at maxHeight
+      const maxHeight = 96; // 6rem = 96px
+      const scrollHeight = textarea.scrollHeight;
+      textarea.style.height = Math.min(scrollHeight, maxHeight) + 'px';
+    }
+  }, [playbookTitle]);
+
   return (
     <>
       <div className="h-screen bg-gray-50 flex overflow-hidden">
@@ -331,28 +344,32 @@ export default function PlaybooksPage() {
         <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* Top Bar */}
           <div className="bg-white border-b border-gray-200 px-4 py-3 flex-shrink-0 relative">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
               <button
                 onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
-                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors flex-shrink-0"
               >
                 {leftSidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
               </button>
               
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
-                <input
+              <div className="flex items-start gap-2 min-w-0 flex-1">
+                <FileText className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                <textarea
                   ref={titleInputRef}
-                  type="text"
                   value={playbookTitle}
                   onChange={(e) => handleTitleChange(e.target.value)}
-                  className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0 min-w-0 flex-1"
+                  className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0 min-w-0 flex-1 resize-none"
                   style={{ 
                     wordBreak: 'break-word', 
                     overflowWrap: 'anywhere',
-                    whiteSpace: 'normal'
+                    whiteSpace: 'normal',
+                    minHeight: '1.5rem',
+                    maxHeight: '6rem',
+                    lineHeight: '1.5rem',
+                    width: '100%'
                   }}
+                  rows={1}
                 />
                 </div>
             </div>
