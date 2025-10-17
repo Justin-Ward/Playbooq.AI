@@ -38,6 +38,8 @@ interface PlaybookEditorProps {
       trackChangesEnabled?: boolean
       onToggleTrackChanges?: () => void
       collaborators?: Array<{ id: string; name: string; email: string }>
+      rightSidebarCollapsed?: boolean
+      leftSidebarCollapsed?: boolean
 }
 
 export default function PlaybookEditor({
@@ -54,7 +56,9 @@ export default function PlaybookEditor({
   lastSaved = null,
   trackChangesEnabled = false,
   onToggleTrackChanges,
-  collaborators = []
+  collaborators = [],
+  rightSidebarCollapsed = false,
+  leftSidebarCollapsed = false
 }: PlaybookEditorProps) {
   const [showTextColorPopup, setShowTextColorPopup] = useState(false)
   const [showHighlightPopup, setShowHighlightPopup] = useState(false)
@@ -104,6 +108,7 @@ export default function PlaybookEditor({
         onRemove: (pos) => {
           setAssignmentToRemovePos(pos)
         },
+        rightSidebarCollapsed,
       }),
     ],
     content: content || '',
@@ -232,11 +237,26 @@ export default function PlaybookEditor({
   // Handle removal from decoration widget
   useEffect(() => {
     if (assignmentToRemovePos !== null && editor) {
-      // Set selection to the assignment position and remove the mark
-      editor.chain()
-        .setTextSelection(assignmentToRemovePos)
-        .removeAssignment()
-        .run()
+      // Find the assignment mark at this position and remove it
+      const { doc } = editor.state
+      let foundAssignment = false
+      
+      doc.descendants((node, pos) => {
+        if (foundAssignment) return false
+        
+        node.marks.forEach((mark) => {
+          if (mark.type.name === 'assignment' && pos === assignmentToRemovePos) {
+            // Set selection to this range and remove the assignment mark
+            const from = pos
+            const to = pos + node.nodeSize
+            editor.chain()
+              .setTextSelection({ from, to })
+              .removeAssignment()
+              .run()
+            foundAssignment = true
+          }
+        })
+      })
       
       setAssignmentToRemovePos(null)
     }
@@ -247,6 +267,81 @@ export default function PlaybookEditor({
     setShowAssignmentModal(false)
     setEditingAssignment(null)
   }
+
+  // Update decoration widget styles when sidebar state changes
+  useEffect(() => {
+    if (!editor) return
+
+    const updateWidgetStyles = () => {
+      const widgets = document.querySelectorAll('.assignment-decoration')
+      const anySidebarCollapsed = rightSidebarCollapsed || leftSidebarCollapsed
+      
+      widgets.forEach((widget: Element) => {
+        const htmlWidget = widget as HTMLElement
+        
+        if (anySidebarCollapsed) {
+          // Any sidebar collapsed: always show widgets in far right margin
+          htmlWidget.style.right = '-200px'
+          htmlWidget.style.opacity = '1'
+          htmlWidget.style.pointerEvents = 'auto'
+        } else {
+          // Both sidebars expanded: hide by default, show near editor on hover
+          htmlWidget.style.right = '10px'
+          htmlWidget.style.opacity = '0'
+          htmlWidget.style.pointerEvents = 'none'
+        }
+      })
+    }
+
+    // Update immediately
+    updateWidgetStyles()
+
+    // Update after a short delay to ensure decorations are rendered
+    const timer = setTimeout(updateWidgetStyles, 100)
+
+    return () => clearTimeout(timer)
+  }, [editor, rightSidebarCollapsed, leftSidebarCollapsed])
+
+  // Handle hover behavior for assignment decorations when both sidebars are expanded
+  useEffect(() => {
+    const anySidebarCollapsed = rightSidebarCollapsed || leftSidebarCollapsed
+    if (!editor || anySidebarCollapsed) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      
+      // Check if hovering over an assignment mark
+      const assignmentMark = target.closest('mark[data-assignment="true"]')
+      
+      // Get all decoration widgets
+      const widgets = document.querySelectorAll('.assignment-decoration')
+      
+      if (assignmentMark) {
+        // Show widgets when hovering over assignment marks
+        widgets.forEach((widget: Element) => {
+          const htmlWidget = widget as HTMLElement
+          htmlWidget.style.opacity = '1'
+          htmlWidget.style.pointerEvents = 'auto'
+        })
+      } else {
+        // Hide widgets when not hovering
+        widgets.forEach((widget: Element) => {
+          const htmlWidget = widget as HTMLElement
+          htmlWidget.style.opacity = '0'
+          htmlWidget.style.pointerEvents = 'none'
+        })
+      }
+    }
+
+    const editorElement = document.querySelector('.ProseMirror')
+    if (editorElement) {
+      editorElement.addEventListener('mousemove', handleMouseMove)
+      
+      return () => {
+        editorElement.removeEventListener('mousemove', handleMouseMove)
+      }
+    }
+  }, [editor, rightSidebarCollapsed, leftSidebarCollapsed])
 
   if (!editor) {
     return (
@@ -705,7 +800,7 @@ export default function PlaybookEditor({
 
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="relative pr-[220px]"> {/* Add right padding for assignment widgets */}
+        <div className={`relative ${(rightSidebarCollapsed || leftSidebarCollapsed) ? 'pr-[220px]' : ''}`}>
           <EditorContent 
             editor={editor} 
             className="min-h-[500px] p-6 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-20"

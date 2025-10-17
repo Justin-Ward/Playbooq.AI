@@ -5,20 +5,30 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 export interface AssignmentDecorationOptions {
   onEdit?: (attrs: any) => void
   onRemove?: (pos: number) => void
+  rightSidebarCollapsed?: boolean
 }
 
 // Global callback registry to allow runtime updates
 const callbackRegistry = {
   onEdit: null as ((attrs: any) => void) | null,
   onRemove: null as ((pos: number) => void) | null,
+  rightSidebarCollapsed: false,
 }
 
 export function setAssignmentDecorationCallbacks(
   onEdit: (attrs: any) => void,
-  onRemove: (pos: number) => void
+  onRemove: (pos: number) => void,
+  rightSidebarCollapsed?: boolean
 ) {
   callbackRegistry.onEdit = onEdit
   callbackRegistry.onRemove = onRemove
+  if (rightSidebarCollapsed !== undefined) {
+    callbackRegistry.rightSidebarCollapsed = rightSidebarCollapsed
+  }
+}
+
+export function updateRightSidebarState(collapsed: boolean) {
+  callbackRegistry.rightSidebarCollapsed = collapsed
 }
 
 export const AssignmentDecorations = Extension.create<AssignmentDecorationOptions>({
@@ -63,6 +73,9 @@ export const AssignmentDecorations = Extension.create<AssignmentDecorationOption
     }
     if (this.options.onRemove) {
       callbackRegistry.onRemove = this.options.onRemove
+    }
+    if (this.options.rightSidebarCollapsed !== undefined) {
+      callbackRegistry.rightSidebarCollapsed = this.options.rightSidebarCollapsed
     }
   },
 })
@@ -149,11 +162,14 @@ function createAssignmentWidget(
   const widget = document.createElement('div')
   widget.className = 'assignment-decoration'
   widget.contentEditable = 'false'
+  widget.setAttribute('data-assignment-pos', pos.toString())
   
-  // Style the widget
+  const isRightSidebarCollapsed = callbackRegistry.rightSidebarCollapsed || options.rightSidebarCollapsed || false
+  
+  // Style the widget based on sidebar state
   Object.assign(widget.style, {
     position: 'absolute',
-    right: '-200px', // Position in right margin
+    right: isRightSidebarCollapsed ? '-200px' : '10px', // Far right when collapsed, near when expanded
     top: '0',
     width: '180px',
     padding: '6px 10px',
@@ -173,6 +189,9 @@ function createAssignmentWidget(
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis',
+    // Show/hide based on sidebar state - when expanded, initially hidden (will show on hover)
+    opacity: isRightSidebarCollapsed ? '1' : '0',
+    pointerEvents: isRightSidebarCollapsed ? 'auto' : 'none',
   })
 
   // Create content container
@@ -249,16 +268,25 @@ function createAssignmentWidget(
   actionsDiv.appendChild(removeBtn)
   widget.appendChild(actionsDiv)
 
-  // Hover effects
+  // Hover effects for the widget itself
   widget.addEventListener('mouseenter', () => {
-    widget.style.transform = 'translateX(-5px)'
-    widget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)'
+    const isCollapsed = callbackRegistry.rightSidebarCollapsed
+    if (isCollapsed) {
+      widget.style.transform = 'translateX(-5px)'
+      widget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)'
+    }
   })
 
   widget.addEventListener('mouseleave', () => {
-    widget.style.transform = 'translateX(0)'
-    widget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'
+    const isCollapsed = callbackRegistry.rightSidebarCollapsed
+    if (isCollapsed) {
+      widget.style.transform = 'translateX(0)'
+      widget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)'
+    }
   })
+
+  // Set up a data attribute to help with hover detection
+  widget.setAttribute('data-assignment-widget', 'true')
 
   return widget
 }

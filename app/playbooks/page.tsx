@@ -441,6 +441,8 @@ export default function PlaybooksPage() {
                 isSaving={isSaving}
                 lastSaved={lastSaved}
                 collaborators={playbookCollaborators}
+                rightSidebarCollapsed={rightSidebarCollapsed}
+                leftSidebarCollapsed={leftSidebarCollapsed}
               />
             )}
             </div>
