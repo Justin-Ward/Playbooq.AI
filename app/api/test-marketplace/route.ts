@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
     // Test basic playbooks query
     const { data: playbooks, error: playbooksError } = await supabase
       .from('playbooks')
-      .select('id, title, is_marketplace, owner_id')
+      .select('id, title, is_marketplace, user_id')
       .limit(5)
 
     if (playbooksError) {

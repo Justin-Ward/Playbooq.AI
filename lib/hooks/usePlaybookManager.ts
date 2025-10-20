@@ -65,7 +65,7 @@ export function usePlaybookManager(): UsePlaybookManagerReturn {
       const playbook = await playbookService.getPlaybook(id)
       
       // Verify ownership
-      if (playbook.owner_id !== user.id) {
+      if (playbook.user_id !== user.id) {
         throw new Error('You do not have permission to access this playbook')
       }
       
@@ -95,7 +95,7 @@ export function usePlaybookManager(): UsePlaybookManagerReturn {
       console.log('Saving new playbook:', playbookData.title)
       const savedPlaybook = await playbookService.savePlaybook({
         ...playbookData,
-        owner_id: user.id
+        user_id: user.id
       })
       
       setCurrentPlaybook(savedPlaybook)

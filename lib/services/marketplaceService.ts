@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { MarketplacePlaybook, MarketplaceSearchFilters, PlaybookFavorite, MarketplaceRating } from '@/types/database'
+import { ensureUUID } from '@/lib/utils/shortId'
 
 export interface MarketplacePlaybookWithStatus extends MarketplacePlaybook {
   creator_name?: string
@@ -40,7 +41,7 @@ class MarketplaceService {
             const { data: profileData } = await supabase
               .from('user_profiles')
               .select('display_name, avatar_url')
-              .eq('id', playbook.owner_id)
+              .eq('id', playbook.user_id)
               .single()
 
             return {
@@ -134,7 +135,7 @@ class MarketplaceService {
             const { data: profileData } = await supabase
               .from('user_profiles')
               .select('display_name, avatar_url')
-              .eq('id', playbook.owner_id)
+              .eq('id', playbook.user_id)
               .single()
 
             return {
@@ -327,7 +328,7 @@ class MarketplaceService {
             const { data: profileData } = await supabase
               .from('user_profiles')
               .select('display_name, avatar_url')
-              .eq('id', playbook.owner_id)
+              .eq('id', playbook.user_id)
               .single()
 
             return {
@@ -361,10 +362,13 @@ class MarketplaceService {
    */
   async getPlaybookById(playbookId: string): Promise<MarketplacePlaybookWithStatus | null> {
     try {
+      // Convert short ID to UUID if needed
+      const uuid = ensureUUID(playbookId)
+      
       const { data, error } = await supabase
         .from('playbooks')
         .select('*')
-        .eq('id', playbookId)
+        .eq('id', uuid)
         .eq('is_marketplace', true)
         .single()
 
@@ -381,7 +385,7 @@ class MarketplaceService {
         const { data: profileData } = await supabase
           .from('user_profiles')
           .select('display_name, avatar_url')
-          .eq('id', data.owner_id)
+          .eq('id', data.user_id)
           .single()
 
         return {

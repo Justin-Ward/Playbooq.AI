@@ -13,6 +13,7 @@ import Link from '@tiptap/extension-link'
 import { Assignment, AssignmentAttributes } from '@/lib/extensions/Assignment'
 import { AssignmentDecorations } from '@/lib/extensions/AssignmentDecorations'
 import AssignmentModal from './AssignmentModal'
+import AssignmentFilter from './AssignmentFilter'
 import { useState, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { 
@@ -20,7 +21,7 @@ import {
   IndentDecrease, IndentIncrease, Link as LinkIcon, StickyNote, Minus,
   Eye, Download, History, Copy, Palette, Highlighter,
   ChevronDown, ChevronRight, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  UserCheck
+  UserCheck, Undo, Redo
 } from 'lucide-react'
 
 interface PlaybookEditorProps {
@@ -68,6 +69,7 @@ export default function PlaybookEditor({
   const [editingAssignment, setEditingAssignment] = useState<AssignmentAttributes | null>(null)
   const [assignmentToRemovePos, setAssignmentToRemovePos] = useState<number | null>(null)
   const [buttonPositions, setButtonPositions] = useState<{ textColor?: DOMRect, highlight?: DOMRect, textAlign?: DOMRect, fontEditor?: DOMRect }>({})
+  const [assignmentFilter, setAssignmentFilter] = useState<string | null>(null)
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -268,6 +270,39 @@ export default function PlaybookEditor({
     setEditingAssignment(null)
   }
 
+  // Handle assignment filter - dynamically inject CSS for the specific user filter
+  useEffect(() => {
+    if (!editor || !assignmentFilter) return
+
+    // Create or update a style element for the filter
+    let styleEl = document.getElementById('assignment-filter-style') as HTMLStyleElement
+    if (!styleEl) {
+      styleEl = document.createElement('style')
+      styleEl.id = 'assignment-filter-style'
+      document.head.appendChild(styleEl)
+    }
+
+    // Generate CSS to highlight only assignments for the selected user
+    // We need to show parent elements that contain the filtered assignment
+    const css = `
+      .ProseMirror[data-assignment-filter="${assignmentFilter}"] p:has(mark[data-assignment="true"][data-assigned-to*="${assignmentFilter}"]),
+      .ProseMirror[data-assignment-filter="${assignmentFilter}"] h1:has(mark[data-assignment="true"][data-assigned-to*="${assignmentFilter}"]),
+      .ProseMirror[data-assignment-filter="${assignmentFilter}"] h2:has(mark[data-assignment="true"][data-assigned-to*="${assignmentFilter}"]),
+      .ProseMirror[data-assignment-filter="${assignmentFilter}"] h3:has(mark[data-assignment="true"][data-assigned-to*="${assignmentFilter}"]),
+      .ProseMirror[data-assignment-filter="${assignmentFilter}"] li:has(mark[data-assignment="true"][data-assigned-to*="${assignmentFilter}"]) {
+        opacity: 1 !important;
+      }
+    `
+    styleEl.textContent = css
+
+    return () => {
+      // Clean up style element when filter is removed
+      if (!assignmentFilter && styleEl) {
+        styleEl.textContent = ''
+      }
+    }
+  }, [editor, assignmentFilter])
+
   // Update decoration widget styles when sidebar state changes
   useEffect(() => {
     if (!editor) return
@@ -369,6 +404,30 @@ export default function PlaybookEditor({
               <span>Saved</span>
             </div>
           ) : null}
+        </div>
+
+        {/* Undo/Redo - Right after saved status */}
+        <div className="flex items-center gap-1 border-r border-gray-300 pr-2 mr-2 flex-shrink-0">
+          <button
+            onClick={() => editor.chain().focus().undo().run()}
+            disabled={!editor.can().undo()}
+            className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+              !editor.can().undo() ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600'
+            }`}
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => editor.chain().focus().redo().run()}
+            disabled={!editor.can().redo()}
+            className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+              !editor.can().redo() ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600'
+            }`}
+            title="Redo (Ctrl+Y)"
+          >
+            <Redo className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Left Side - Formatting Tools */}
@@ -538,15 +597,6 @@ export default function PlaybookEditor({
               <LinkIcon className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setShowAssignmentModal(true)}
-              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                editor.isActive('assignment') ? 'bg-green-100 text-green-600' : 'text-gray-600'
-              }`}
-              title="Create Assignment"
-            >
-              <UserCheck className="h-4 w-4" />
-            </button>
-            <button
               onClick={addNote}
               className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
               title="Insert Note"
@@ -560,6 +610,23 @@ export default function PlaybookEditor({
             >
               <Minus className="h-4 w-4" />
             </button>
+          </div>
+
+          {/* Assignments Section */}
+          <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
+            <button
+              onClick={() => setShowAssignmentModal(true)}
+              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                editor.isActive('assignment') ? 'bg-green-100 text-green-600' : 'text-gray-600'
+              }`}
+              title="Create Assignment"
+            >
+              <UserCheck className="h-4 w-4" />
+            </button>
+            <AssignmentFilter 
+              editor={editor} 
+              onFilterChange={setAssignmentFilter}
+            />
           </div>
         </div>
 
@@ -598,7 +665,6 @@ export default function PlaybookEditor({
               <Copy className="h-4 w-4" />
             </button>
           </div>
-
 
             {/* Status - Removed auto-save text, keeping only last saved time if available */}
             {lastSaved && (
@@ -796,7 +862,6 @@ export default function PlaybookEditor({
           </div>,
           document.body
         )}
-      </div>
 
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto">

@@ -518,7 +518,7 @@ export default function PlaybooksPage() {
               permissionLevel={
                 // Determine permission level based on current user and playbook
                 !user?.id ? 'view' :
-                (currentPlaybook && 'owner_id' in currentPlaybook && !('is_temp' in currentPlaybook) && currentPlaybook.owner_id === user.id) ? 'owner' :
+                (currentPlaybook && 'user_id' in currentPlaybook && !('is_temp' in currentPlaybook) && currentPlaybook.user_id === user.id) ? 'owner' :
                 'edit' // Default to edit for authenticated users on non-owned playbooks
               }
               isOpen={showChat}

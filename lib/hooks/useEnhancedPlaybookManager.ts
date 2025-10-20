@@ -102,7 +102,7 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
         const playbook = await playbookService.getPlaybook(id)
         
         // Verify ownership or collaboration
-        if (playbook.owner_id !== user.id) {
+        if (playbook.user_id !== user.id) {
           // Check if user is a collaborator
           const { createSupabaseClient } = await import('@/lib/supabase')
           const supabase = createSupabaseClient()
@@ -152,7 +152,7 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
         // Save to remote database
         const savedPlaybook = await playbookService.savePlaybook({
           ...playbookData,
-          owner_id: user.id
+          user_id: user.id
         })
         
         setCurrentPlaybook(savedPlaybook)
@@ -426,7 +426,7 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
           .select(`
             playbook_id,
             playbooks!inner(
-              id, title, description, tags, is_public, created_at, updated_at, owner_id,
+              id, title, description, tags, is_public, created_at, updated_at, user_id,
               is_marketplace, price, total_purchases, average_rating
             )
           `)
@@ -447,7 +447,7 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
             is_public: collab.playbooks.is_public,
             created_at: collab.playbooks.created_at,
             updated_at: collab.playbooks.updated_at,
-            owner_id: collab.playbooks.owner_id,
+            user_id: collab.playbooks.user_id,
             is_marketplace: collab.playbooks.is_marketplace,
             price: collab.playbooks.price,
             total_purchases: collab.playbooks.total_purchases,

@@ -124,7 +124,7 @@ export default function MarketplaceDetailPage() {
     }
 
     // Check if user is trying to purchase their own playbook
-    if (playbook && user.id === playbook.owner_id) {
+    if (playbook && user.id === playbook.user_id) {
       alert('You cannot purchase your own playbook.')
       return
     }
@@ -140,7 +140,7 @@ export default function MarketplaceDetailPage() {
     }
     
     // TODO: Implement messaging functionality
-    console.log('Message seller:', playbook?.owner_id)
+    console.log('Message seller:', playbook?.user_id)
   }
 
   const handleShare = async (platform: 'twitter' | 'linkedin' | 'copy') => {
@@ -609,7 +609,7 @@ export default function MarketplaceDetailPage() {
                       )}
                     </div>
                     <Link 
-                      href={`/profile/${playbook.owner_id}`}
+                      href={`/profile/${playbook.user_id}`}
                       className="text-blue-600 hover:text-blue-800 font-medium"
                     >
                       by {playbook.creator_name}

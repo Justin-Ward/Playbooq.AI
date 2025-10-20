@@ -12,10 +12,11 @@ export type Database = {
       playbooks: {
         Row: {
           id: string
+          short_id: string | null
           title: string
           description: string | null
           content: Json
-          owner_id: string
+          user_id: string
           is_public: boolean
           is_template: boolean
           tags: string[]
@@ -31,10 +32,11 @@ export type Database = {
         }
         Insert: {
           id?: string
+          short_id?: string | null
           title?: string
           description?: string | null
           content?: Json
-          owner_id: string
+          user_id: string
           is_public?: boolean
           is_template?: boolean
           tags?: string[]
@@ -50,10 +52,11 @@ export type Database = {
         }
         Update: {
           id?: string
+          short_id?: string | null
           title?: string
           description?: string | null
           content?: Json
-          owner_id?: string
+          user_id?: string
           is_public?: boolean
           is_template?: boolean
           tags?: string[]
@@ -151,6 +154,7 @@ export type Database = {
       user_profiles: {
         Row: {
           id: string
+          short_id: string | null
           display_name: string | null
           bio: string | null
           avatar_url: string | null
@@ -160,6 +164,7 @@ export type Database = {
         }
         Insert: {
           id: string
+          short_id?: string | null
           display_name?: string | null
           bio?: string | null
           avatar_url?: string | null
@@ -169,6 +174,7 @@ export type Database = {
         }
         Update: {
           id?: string
+          short_id?: string | null
           display_name?: string | null
           bio?: string | null
           avatar_url?: string | null
@@ -431,7 +437,7 @@ export type Database = {
           id: string
           title: string
           description: string
-          owner_id: string
+          user_id: string
           is_public: boolean
           category: string
           tags: string[]

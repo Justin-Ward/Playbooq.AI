@@ -292,3 +292,33 @@ body {
 .ProseMirror li {
   position: relative;
 }
+
+/* Assignment Filter Styles */
+/* When a filter is active, dim all content */
+.ProseMirror[data-assignment-filter] p,
+.ProseMirror[data-assignment-filter] h1,
+.ProseMirror[data-assignment-filter] h2,
+.ProseMirror[data-assignment-filter] h3,
+.ProseMirror[data-assignment-filter] ul,
+.ProseMirror[data-assignment-filter] ol,
+.ProseMirror[data-assignment-filter] li,
+.ProseMirror[data-assignment-filter] blockquote {
+  opacity: 0.25;
+  transition: opacity 0.2s ease;
+}
+
+/* Keep assignment marks at full opacity when filter is active */
+.ProseMirror[data-assignment-filter] mark[data-assignment="true"] {
+  opacity: 1;
+  position: relative;
+  z-index: 1;
+}
+
+/* Highlight the parent elements that contain matching assignments */
+.ProseMirror[data-assignment-filter] p:has(mark[data-assignment="true"][data-assigned-to*="FILTER_USER"]),
+.ProseMirror[data-assignment-filter] h1:has(mark[data-assignment="true"][data-assigned-to*="FILTER_USER"]),
+.ProseMirror[data-assignment-filter] h2:has(mark[data-assignment="true"][data-assigned-to*="FILTER_USER"]),
+.ProseMirror[data-assignment-filter] h3:has(mark[data-assignment="true"][data-assigned-to*="FILTER_USER"]),
+.ProseMirror[data-assignment-filter] li:has(mark[data-assignment="true"][data-assigned-to*="FILTER_USER"]) {
+  opacity: 1;
+}

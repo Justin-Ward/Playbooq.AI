@@ -3,7 +3,7 @@ import { PlaybookData } from './playbookService'
 const STORAGE_KEY = 'playbooq-temp-playbooks'
 const MAX_TEMP_PLAYBOOKS = 2
 
-export interface LocalPlaybook extends Omit<PlaybookData, 'id' | 'owner_id' | 'created_at' | 'updated_at'> {
+export interface LocalPlaybook extends Omit<PlaybookData, 'id' | 'user_id' | 'created_at' | 'updated_at'> {
   id: string
   created_at: string
   updated_at: string

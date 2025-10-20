@@ -1,5 +1,6 @@
 import { createSupabaseClient } from '@/lib/supabase'
 import { Database } from '@/types/database'
+import { generateShortId, ensureShortId, ensureUUID } from '@/lib/utils/shortId'
 
 type Playbook = Database['public']['Tables']['playbooks']['Row']
 type PlaybookInsert = Database['public']['Tables']['playbooks']['Insert']
@@ -7,12 +8,13 @@ type PlaybookUpdate = Database['public']['Tables']['playbooks']['Update']
 
 export interface PlaybookData {
   id?: string
+  short_id?: string
   title: string
   content: any // Tiptap JSON content
   description?: string
   tags?: string[]
   is_public?: boolean
-  owner_id?: string
+  user_id?: string
   created_at?: string
   updated_at?: string
   is_marketplace?: boolean
@@ -24,13 +26,14 @@ export interface PlaybookData {
 
 export interface PlaybookListItem {
   id: string
+  short_id?: string
   title: string
   description: string | null
   tags: string[] | null
   is_public: boolean
   created_at: string
   updated_at: string
-  owner_id: string
+  user_id: string
   is_marketplace?: boolean
   price?: number
   total_purchases?: number
@@ -56,12 +59,13 @@ export class PlaybookService {
           description: playbookData.description || null,
           tags: playbookData.tags || [],
           is_public: playbookData.is_public || false,
-          owner_id: playbookData.owner_id || null,
+          user_id: playbookData.user_id || null,
           is_marketplace: playbookData.is_marketplace || false,
           price: playbookData.price || 0,
           preview_content: playbookData.preview_content || null,
           total_purchases: playbookData.total_purchases || 0,
-          average_rating: playbookData.average_rating || 0
+          average_rating: playbookData.average_rating || 0,
+          short_id: generateShortId()
         })
         .select()
         .single()
@@ -74,17 +78,17 @@ export class PlaybookService {
       console.log('Playbook saved successfully:', data.id)
       
       // Add the owner as a collaborator
-      if (playbookData.owner_id) {
+      if (playbookData.user_id) {
         try {
           const { error: collaboratorError } = await this.supabase
             .from('collaborators')
             .insert({
               playbook_id: data.id,
-              user_id: playbookData.owner_id,
+              user_id: playbookData.user_id,
               user_email: '', // Will be filled in later if available
               user_name: '', // Will be filled in later if available
               permission_level: 'owner',
-              invited_by: playbookData.owner_id,
+              invited_by: playbookData.user_id,
               invited_at: new Date().toISOString(),
               accepted_at: new Date().toISOString(),
               status: 'accepted'
@@ -157,8 +161,8 @@ export class PlaybookService {
       
       const { data, error } = await this.supabase
         .from('playbooks')
-        .select('id, title, description, tags, is_public, created_at, updated_at, owner_id, is_marketplace, price, total_purchases, average_rating')
-        .eq('owner_id', ownerId)
+        .select('id, title, description, tags, is_public, created_at, updated_at, user_id, is_marketplace, price, total_purchases, average_rating')
+        .eq('user_id', ownerId)
         .order('updated_at', { ascending: false })
 
       if (error) {
@@ -181,10 +185,13 @@ export class PlaybookService {
     try {
       console.log('Fetching playbook:', id)
       
+      // Convert short ID to UUID if needed
+      const uuid = ensureUUID(id)
+      
       const { data, error } = await this.supabase
         .from('playbooks')
         .select('*')
-        .eq('id', id)
+        .eq('id', uuid)
         .single()
 
       if (error) {
@@ -196,6 +203,32 @@ export class PlaybookService {
       return data as PlaybookData
     } catch (error) {
       console.error('PlaybookService.getPlaybook error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get a playbook by short ID
+   */
+  async getPlaybookByShortId(shortId: string): Promise<PlaybookData> {
+    try {
+      console.log('Fetching playbook by short ID:', shortId)
+      
+      const { data, error } = await this.supabase
+        .from('playbooks')
+        .select('*')
+        .eq('short_id', shortId)
+        .single()
+
+      if (error) {
+        console.error('Error fetching playbook by short ID:', error)
+        throw new Error(`Failed to fetch playbook: ${error.message}`)
+      }
+
+      console.log('Fetched playbook by short ID:', data.title)
+      return data as PlaybookData
+    } catch (error) {
+      console.error('PlaybookService.getPlaybookByShortId error:', error)
       throw error
     }
   }
@@ -241,7 +274,7 @@ export class PlaybookService {
         description: originalPlaybook.description,
         tags: originalPlaybook.tags,
         is_public: false, // Duplicates are private by default
-        owner_id: originalPlaybook.owner_id
+        user_id: originalPlaybook.user_id
       }
 
       const newPlaybook = await this.savePlaybook(duplicatedData)
@@ -262,8 +295,8 @@ export class PlaybookService {
       
       const { data, error } = await this.supabase
         .from('playbooks')
-        .select('id, title, description, tags, is_public, created_at, updated_at, owner_id')
-        .eq('owner_id', ownerId)
+        .select('id, title, description, tags, is_public, created_at, updated_at, user_id')
+        .eq('user_id', ownerId)
         .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
         .order('updated_at', { ascending: false })
 
@@ -289,7 +322,7 @@ export class PlaybookService {
       
       const { data, error } = await this.supabase
         .from('playbooks')
-        .select('id, title, description, tags, is_public, created_at, updated_at, owner_id')
+        .select('id, title, description, tags, is_public, created_at, updated_at, user_id')
         .eq('is_public', true)
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1)

@@ -105,7 +105,7 @@ export default function CollaboratorsModal({
       // Get the actual playbook owner from the playbooks table
       const { data: playbookData, error: playbookError } = await supabase
         .from('playbooks')
-        .select('owner_id')
+        .select('user_id')
         .eq('id', playbookId)
         .single()
 
@@ -113,7 +113,7 @@ export default function CollaboratorsModal({
         console.error('Error fetching playbook owner:', playbookError)
       }
 
-      const actualOwnerId = playbookData?.owner_id
+      const actualOwnerId = playbookData?.user_id
 
       // Check if owner is already in the collaborators list
       const ownerInCollaborators = processedCollaborators.find((c: any) => c.user_id === actualOwnerId)
