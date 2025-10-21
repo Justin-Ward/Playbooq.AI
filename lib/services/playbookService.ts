@@ -39,6 +39,9 @@ export interface PlaybookListItem {
   total_purchases?: number
   average_rating?: number
   is_purchased?: boolean
+  is_temp?: boolean
+  assignment_enabled?: boolean
+  default_assignment_color?: string
 }
 
 export class PlaybookService {
@@ -352,6 +355,11 @@ export class PlaybookService {
     status: string
   }>> {
     try {
+      // Return empty array for temporary playbooks since they don't have collaborators in the database
+      if (playbookId.startsWith('temp-')) {
+        return []
+      }
+
       const { data, error } = await this.supabase
         .from('collaborators')
         .select('*')
@@ -361,7 +369,7 @@ export class PlaybookService {
 
       if (error) {
         console.error('Error fetching collaborators:', error)
-        throw new Error(`Failed to fetch collaborators: ${error.message}`)
+        throw new Error(`Failed to fetch collaborators: ${error.message || 'Unknown error'}`)
       }
 
       return data || []

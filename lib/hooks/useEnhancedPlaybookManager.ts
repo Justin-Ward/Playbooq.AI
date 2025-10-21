@@ -342,17 +342,68 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
   }, [user?.id, savePlaybook])
 
   // Create a new empty playbook
-  const createNewPlaybook = useCallback(() => {
+  const createNewPlaybook = useCallback(async () => {
     if (!canCreateMore && !isAuthenticated) {
       setError(`You can only create 2 playbooks without signing in. Please sign in to create more.`)
       return
     }
     
-    setCurrentPlaybook(null)
-    setLastSaved(null)
-    hasUnsavedChangesRef.current = false
-    clearError()
-  }, [canCreateMore, isAuthenticated, clearError])
+    try {
+      if (isAuthenticated && user?.id) {
+        // User is signed in - create a real playbook in the database
+        console.log('Creating new playbook for authenticated user:', user.id)
+        
+        const newPlaybook = await playbookService.savePlaybook({
+          title: 'Untitled Playbook',
+          content: '',
+          description: '',
+          is_public: false,
+          user_id: user.id,
+          assignment_enabled: false,
+          default_assignment_color: '#fef3c7'
+        })
+        
+        console.log('Created new playbook:', newPlaybook)
+        
+        setCurrentPlaybook(newPlaybook)
+        setLastSaved(new Date())
+        hasUnsavedChangesRef.current = false
+        clearError()
+        
+        // Refresh the playbook list to show the new playbook in the sidebar
+        console.log('Calling refreshPlaybookList...')
+        refreshPlaybookList()
+      } else {
+        // User is not signed in - create a temporary playbook
+        console.log('Creating temporary playbook for guest user')
+        
+        const tempPlaybook = LocalPlaybookService.saveTempPlaybook({
+          title: 'Untitled Playbook',
+          content: '',
+          description: '',
+          is_public: false,
+          is_purchased: false,
+          short_id: null,
+          assignment_enabled: false,
+          default_assignment_color: '#fef3c7'
+        })
+        
+        console.log('Created temp playbook:', tempPlaybook)
+        
+        setCurrentPlaybook(tempPlaybook)
+        setLastSaved(null)
+        hasUnsavedChangesRef.current = false
+        clearError()
+        
+        // Refresh the playbook list to show the new temporary playbook in the sidebar
+        console.log('Calling refreshPlaybookList...')
+        refreshPlaybookList()
+      }
+    } catch (error) {
+      console.error('Error creating new playbook:', error)
+      setError(error instanceof Error ? error.message : 'Failed to create new playbook')
+    }
+  }, [canCreateMore, isAuthenticated, clearError, user?.id])
 
   // Update content with auto-save
   const updateContent = useCallback(async (content: any, title?: string) => {
@@ -371,10 +422,30 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
     // Set new timeout for auto-save
     autoSaveTimeoutRef.current = setTimeout(async () => {
       try {
-        await updatePlaybook(currentPlaybook.id, {
-          content,
-          ...(title && { title })
-        })
+        // Check if this is a temporary playbook
+        if (LocalPlaybookService.isTempPlaybook(currentPlaybook.id)) {
+          // Update temporary playbook locally
+          const updatedTempPlaybook = LocalPlaybookService.updateTempPlaybook(currentPlaybook.id, {
+            content,
+            ...(title && { title })
+          })
+          
+          // Update current playbook state
+          setCurrentPlaybook(updatedTempPlaybook)
+          
+          // Update the playbook list
+          setPlaybookList(prev => prev.map(playbook => 
+            playbook.id === currentPlaybook.id 
+              ? { ...playbook, title: updatedTempPlaybook.title, updated_at: updatedTempPlaybook.updated_at }
+              : playbook
+          ))
+        } else {
+          // Update regular playbook in database
+          await updatePlaybook(currentPlaybook.id, {
+            content,
+            ...(title && { title })
+          })
+        }
       } catch (err) {
         console.error('Auto-save failed:', err)
         // Don't set error state for auto-save failures
@@ -390,7 +461,26 @@ export function useEnhancedPlaybookManager(): UseEnhancedPlaybookManagerReturn {
     }
 
     try {
-      await updatePlaybook(currentPlaybook.id, { title })
+      // Check if this is a temporary playbook
+      if (LocalPlaybookService.isTempPlaybook(currentPlaybook.id)) {
+        // Update temporary playbook locally
+        const updatedTempPlaybook = LocalPlaybookService.updateTempPlaybook(currentPlaybook.id, {
+          title
+        })
+        
+        // Update current playbook state
+        setCurrentPlaybook(updatedTempPlaybook)
+        
+        // Update the playbook list
+        setPlaybookList(prev => prev.map(playbook => 
+          playbook.id === currentPlaybook.id 
+            ? { ...playbook, title: updatedTempPlaybook.title, updated_at: updatedTempPlaybook.updated_at }
+            : playbook
+        ))
+      } else {
+        // Update regular playbook in database
+        await updatePlaybook(currentPlaybook.id, { title })
+      }
     } catch (err) {
       console.error('Error updating title:', err)
     }

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 import { playbookService, PlaybookData, PlaybookListItem } from '@/lib/services/playbookService'
+import { LocalPlaybookService, LocalPlaybook } from '@/lib/services/localPlaybookService'
 
 interface UsePlaybookManagerReturn {
   // Current playbook state
@@ -52,27 +53,58 @@ export function usePlaybookManager(): UsePlaybookManagerReturn {
 
   // Load a specific playbook
   const loadPlaybook = useCallback(async (id: string) => {
-    if (!user?.id) {
-      setError('User not authenticated')
-      return
-    }
-
     setIsLoading(true)
     setError(null)
     
     try {
       console.log('Loading playbook:', id)
-      const playbook = await playbookService.getPlaybook(id)
       
-      // Verify ownership
-      if (playbook.user_id !== user.id) {
-        throw new Error('You do not have permission to access this playbook')
+      // Check if this is a temporary playbook
+      if (LocalPlaybookService.isTempPlaybook(id)) {
+        const tempPlaybook = LocalPlaybookService.getTempPlaybook(id)
+        if (!tempPlaybook) {
+          throw new Error('Temporary playbook not found')
+        }
+        
+        // Convert LocalPlaybook to PlaybookData format
+        const playbookData: PlaybookData = {
+          id: tempPlaybook.id,
+          title: tempPlaybook.title,
+          content: tempPlaybook.content,
+          description: tempPlaybook.description,
+          is_public: tempPlaybook.is_public,
+          is_purchased: tempPlaybook.is_purchased,
+          short_id: tempPlaybook.short_id,
+          assignment_enabled: tempPlaybook.assignment_enabled,
+          default_assignment_color: tempPlaybook.default_assignment_color,
+          user_id: user?.id || '',
+          created_at: tempPlaybook.created_at,
+          updated_at: tempPlaybook.updated_at
+        }
+        
+        setCurrentPlaybook(playbookData)
+        setLastSaved(new Date())
+        hasUnsavedChangesRef.current = false
+        console.log('Temporary playbook loaded successfully:', playbookData.title)
+      } else {
+        // Load regular playbook from database
+        if (!user?.id) {
+          setError('User not authenticated')
+          return
+        }
+        
+        const playbook = await playbookService.getPlaybook(id)
+        
+        // Verify ownership
+        if (playbook.user_id !== user.id) {
+          throw new Error('You do not have permission to access this playbook')
+        }
+        
+        setCurrentPlaybook(playbook)
+        setLastSaved(new Date())
+        hasUnsavedChangesRef.current = false
+        console.log('Playbook loaded successfully:', playbook.title)
       }
-      
-      setCurrentPlaybook(playbook)
-      setLastSaved(new Date())
-      hasUnsavedChangesRef.current = false
-      console.log('Playbook loaded successfully:', playbook.title)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load playbook'
       setError(errorMessage)
@@ -215,11 +247,51 @@ export function usePlaybookManager(): UsePlaybookManagerReturn {
 
   // Create a new empty playbook
   const createNewPlaybook = useCallback(() => {
-    setCurrentPlaybook(null)
-    setLastSaved(null)
-    hasUnsavedChangesRef.current = false
-    clearError()
-  }, [clearError])
+    try {
+      // Create a temporary playbook
+      const tempPlaybook = LocalPlaybookService.saveTempPlaybook({
+        title: 'Untitled Playbook',
+        content: '',
+        description: '',
+        is_public: false,
+        is_purchased: false,
+        short_id: null,
+        assignment_enabled: false,
+        default_assignment_color: '#fef3c7'
+      })
+      
+      console.log('Created temp playbook:', tempPlaybook)
+      
+      // Convert LocalPlaybook to PlaybookData format
+      const playbookData: PlaybookData = {
+        id: tempPlaybook.id,
+        title: tempPlaybook.title,
+        content: tempPlaybook.content,
+        description: tempPlaybook.description,
+        is_public: tempPlaybook.is_public,
+        is_purchased: tempPlaybook.is_purchased,
+        short_id: tempPlaybook.short_id,
+        assignment_enabled: tempPlaybook.assignment_enabled,
+        default_assignment_color: tempPlaybook.default_assignment_color,
+        user_id: user?.id || '',
+        created_at: tempPlaybook.created_at,
+        updated_at: tempPlaybook.updated_at
+      }
+      
+      console.log('Setting current playbook:', playbookData)
+      setCurrentPlaybook(playbookData)
+      setLastSaved(null)
+      hasUnsavedChangesRef.current = false
+      clearError()
+      
+      // Refresh the playbook list to show the new temporary playbook in the sidebar
+      console.log('Calling refreshPlaybookList...')
+      refreshPlaybookList()
+    } catch (error) {
+      console.error('Error creating new playbook:', error)
+      setError(error instanceof Error ? error.message : 'Failed to create new playbook')
+    }
+  }, [clearError, user?.id, refreshPlaybookList])
 
   // Update content with auto-save
   const updateContent = useCallback(async (content: any, title?: string) => {
@@ -238,10 +310,28 @@ export function usePlaybookManager(): UsePlaybookManagerReturn {
     // Set new timeout for auto-save
     autoSaveTimeoutRef.current = setTimeout(async () => {
       try {
-        await updatePlaybook(currentPlaybook.id, {
-          content,
-          ...(title && { title })
-        })
+        // Check if this is a temporary playbook
+        if (LocalPlaybookService.isTempPlaybook(currentPlaybook.id)) {
+          // Update temporary playbook locally
+          const updatedTempPlaybook = LocalPlaybookService.updateTempPlaybook(currentPlaybook.id, {
+            content,
+            ...(title && { title })
+          })
+          
+          // Update current playbook state
+          setCurrentPlaybook(prev => prev ? {
+            ...prev,
+            content: updatedTempPlaybook.content,
+            title: updatedTempPlaybook.title,
+            updated_at: updatedTempPlaybook.updated_at
+          } : null)
+        } else {
+          // Update regular playbook in database
+          await updatePlaybook(currentPlaybook.id, {
+            content,
+            ...(title && { title })
+          })
+        }
       } catch (err) {
         console.error('Auto-save failed:', err)
         // Don't set error state for auto-save failures
@@ -257,7 +347,23 @@ export function usePlaybookManager(): UsePlaybookManagerReturn {
     }
 
     try {
-      await updatePlaybook(currentPlaybook.id, { title })
+      // Check if this is a temporary playbook
+      if (LocalPlaybookService.isTempPlaybook(currentPlaybook.id)) {
+        // Update temporary playbook locally
+        const updatedTempPlaybook = LocalPlaybookService.updateTempPlaybook(currentPlaybook.id, {
+          title
+        })
+        
+        // Update current playbook state
+        setCurrentPlaybook(prev => prev ? {
+          ...prev,
+          title: updatedTempPlaybook.title,
+          updated_at: updatedTempPlaybook.updated_at
+        } : null)
+      } else {
+        // Update regular playbook in database
+        await updatePlaybook(currentPlaybook.id, { title })
+      }
     } catch (err) {
       console.error('Error updating title:', err)
     }
@@ -265,19 +371,42 @@ export function usePlaybookManager(): UsePlaybookManagerReturn {
 
   // Refresh playbook list
   const refreshPlaybookList = useCallback(async () => {
-    if (!user?.id) {
-      setPlaybookList([])
-      return
-    }
-
     setIsLoading(true)
     setError(null)
     
     try {
       console.log('Refreshing playbook list')
-      const playbooks = await playbookService.getPlaybooks(user.id)
-      setPlaybookList(playbooks)
-      console.log('Playbook list refreshed:', playbooks.length, 'playbooks')
+      
+      // Get regular playbooks from database (if user is signed in)
+      let regularPlaybooks: PlaybookListItem[] = []
+      if (user?.id) {
+        regularPlaybooks = await playbookService.getPlaybooks(user.id)
+      }
+      
+      // Get temporary playbooks from localStorage
+      const tempPlaybooks = LocalPlaybookService.getTempPlaybooks()
+      console.log('Found temp playbooks:', tempPlaybooks.length, tempPlaybooks)
+      
+      const tempPlaybookListItems: PlaybookListItem[] = tempPlaybooks.map(temp => ({
+        id: temp.id,
+        title: temp.title,
+        description: temp.description,
+        is_public: temp.is_public,
+        is_purchased: temp.is_purchased,
+        short_id: temp.short_id,
+        assignment_enabled: temp.assignment_enabled,
+        default_assignment_color: temp.default_assignment_color,
+        user_id: user?.id || '',
+        created_at: temp.created_at,
+        updated_at: temp.updated_at,
+        is_temp: true
+      }))
+      
+      // Combine regular and temporary playbooks
+      const allPlaybooks = [...regularPlaybooks, ...tempPlaybookListItems]
+      setPlaybookList(allPlaybooks)
+      console.log('Playbook list refreshed:', allPlaybooks.length, 'playbooks')
+      console.log('All playbooks:', allPlaybooks)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch playbooks'
       setError(errorMessage)

@@ -12,17 +12,25 @@ import Placeholder from '@tiptap/extension-placeholder'
 import Link from '@tiptap/extension-link'
 import { Assignment, AssignmentAttributes } from '@/lib/extensions/Assignment'
 import { AssignmentDecorations } from '@/lib/extensions/AssignmentDecorations'
+import { Attachment, AttachmentAttributes } from '@/lib/extensions/Attachment'
+import { InternalLink } from '@/lib/extensions/InternalLink'
 import AssignmentModal from './AssignmentModal'
 import AssignmentFilter from './AssignmentFilter'
-import { useState, useCallback, useEffect } from 'react'
+import AttachmentsPanel from './AttachmentsPanel'
+import InternalPageModal from './InternalPageModal'
+import InternalPageEditModal from './InternalPageEditModal'
+import PageTabs from './PageTabs'
+import InternalPageEditor, { InternalPageEditorRef } from './InternalPageEditor'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { 
   Bold, Italic, Underline as UnderlineIcon, List, ListOrdered,
   IndentDecrease, IndentIncrease, Link as LinkIcon, StickyNote, Minus,
   Eye, Download, History, Copy, Palette, Highlighter,
   ChevronDown, ChevronRight, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  UserCheck, Undo, Redo
+  UserCheck, Undo, Redo, Paperclip, FileText, Link2
 } from 'lucide-react'
+import { internalPageService, InternalPage } from '@/lib/services/internalPageService'
 
 interface PlaybookEditorProps {
       content?: string
@@ -41,6 +49,8 @@ interface PlaybookEditorProps {
       collaborators?: Array<{ id: string; name: string; email: string }>
       rightSidebarCollapsed?: boolean
       leftSidebarCollapsed?: boolean
+      playbookId?: string
+      userId?: string
 }
 
 export default function PlaybookEditor({
@@ -59,7 +69,9 @@ export default function PlaybookEditor({
   onToggleTrackChanges,
   collaborators = [],
   rightSidebarCollapsed = false,
-  leftSidebarCollapsed = false
+  leftSidebarCollapsed = false,
+  playbookId,
+  userId
 }: PlaybookEditorProps) {
   const [showTextColorPopup, setShowTextColorPopup] = useState(false)
   const [showHighlightPopup, setShowHighlightPopup] = useState(false)
@@ -70,6 +82,20 @@ export default function PlaybookEditor({
   const [assignmentToRemovePos, setAssignmentToRemovePos] = useState<number | null>(null)
   const [buttonPositions, setButtonPositions] = useState<{ textColor?: DOMRect, highlight?: DOMRect, textAlign?: DOMRect, fontEditor?: DOMRect }>({})
   const [assignmentFilter, setAssignmentFilter] = useState<string | null>(null)
+  const [showAttachmentsPanel, setShowAttachmentsPanel] = useState(false)
+  const [showInternalPageModal, setShowInternalPageModal] = useState(false)
+  const [showInternalPageEditModal, setShowInternalPageEditModal] = useState(false)
+  const [editingPageId, setEditingPageId] = useState<string | null>(null)
+  const [internalPages, setInternalPages] = useState<InternalPage[]>([])
+  const [currentPageId, setCurrentPageId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const internalPageEditorRef = useRef<InternalPageEditorRef>(null)
+  const internalPagesRef = useRef<InternalPage[]>([])
+
+  // Update ref whenever internalPages changes
+  useEffect(() => {
+    internalPagesRef.current = internalPages
+  }, [internalPages])
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -112,6 +138,8 @@ export default function PlaybookEditor({
         },
         rightSidebarCollapsed,
       }),
+      Attachment,
+      InternalLink,
     ],
     content: content || '',
     editable,
@@ -130,6 +158,22 @@ export default function PlaybookEditor({
       onSelectionChange?.(selection)
     },
   })
+
+  // Get the currently active editor (main or internal page)
+  const getCurrentEditor = useCallback(() => {
+    if (currentPageId && internalPageEditorRef.current) {
+      return internalPageEditorRef.current.getEditor()
+    }
+    return editor
+  }, [currentPageId, editor])
+
+  // Helper function to execute commands on the current editor
+  const executeCommand = useCallback((command: (editor: any) => void) => {
+    const currentEditor = getCurrentEditor()
+    if (currentEditor) {
+      command(currentEditor)
+    }
+  }, [getCurrentEditor])
 
   // Update editor content when content prop changes (but not when it's from editor itself)
   useEffect(() => {
@@ -209,6 +253,246 @@ export default function PlaybookEditor({
     if (!editor) return
     editor.chain().setHorizontalRule().run()
   }, [editor])
+
+  // Handle file attachment
+  const handleFileAttachment = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
+  }, [])
+
+  const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !editor) return
+
+    // Convert file to base64 data URL for storage
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const fileUrl = e.target?.result as string
+      
+      const attachmentAttrs: AttachmentAttributes = {
+        fileName: file.name,
+        fileUrl: fileUrl,
+        fileSize: file.size,
+        fileType: file.type || file.name.split('.').pop() || 'file',
+        uploadDate: new Date().toISOString(),
+      }
+
+      editor.chain().focus().addAttachment(attachmentAttrs).run()
+    }
+    reader.readAsDataURL(file)
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [editor])
+
+  // Handle internal page creation
+  const handleCreateInternalPage = useCallback(async (data: {
+    pageName: string
+    pageTitle: string
+    collaborators: { userId: string; permission: 'owner' | 'edit' | 'view' }[]
+  }) => {
+    if (!editor || !playbookId || !userId) return
+
+    try {
+      // Check if a page with this name already exists
+      const existingPage = internalPagesRef.current.find(
+        page => page.page_name.toLowerCase() === data.pageName.toLowerCase()
+      )
+      
+      if (existingPage) {
+        alert(`A page named "${data.pageName}" already exists. Please choose a different name.`)
+        // Reopen the modal so user can try again
+        setShowInternalPageModal(true)
+        return
+      }
+
+      // Create new internal page in database
+      const newPage = await internalPageService.createInternalPage({
+        playbook_id: playbookId,
+        page_name: data.pageName,
+        page_title: data.pageTitle,
+        content: '<p>Start writing your internal page content here...</p>',
+        created_by: userId,
+        permissions: data.collaborators
+      })
+
+      // Add to local state
+      setInternalPages(prev => [...prev, newPage])
+
+      // Find current user's name from collaborators
+      const currentUser = collaborators?.find(c => c.id === userId)
+      const createdByName = currentUser?.name || 'Unknown User'
+
+      // Create internal link in editor
+      const linkAttrs = {
+        pageId: newPage.id,
+        pageName: data.pageName,
+        pageTitle: data.pageTitle,
+        createdBy: userId,
+        createdByName: createdByName
+      }
+
+      // Check if there's selected text
+      const { from, to } = editor.state.selection
+      const selectedText = editor.state.doc.textBetween(from, to)
+      
+      if (selectedText) {
+        // If text is selected, apply the mark to the selected text
+        editor.chain().focus().setMark('internalLink', linkAttrs).run()
+      } else {
+        // If no text is selected, insert the page name as a link
+        editor.chain().focus().insertInternalLink(linkAttrs).run()
+      }
+    } catch (error) {
+      console.error('Error creating internal page:', error)
+      
+      // Show user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create internal page'
+      
+      if (errorMessage.includes('duplicate key')) {
+        alert(`A page named "${data.pageName}" already exists. Please reload the playbook and try again with a different name.`)
+        // Reload internal pages to sync with database
+        try {
+          const pages = await internalPageService.getInternalPages(playbookId)
+          setInternalPages(pages)
+        } catch (reloadError) {
+          console.error('Error reloading internal pages:', reloadError)
+        }
+      } else {
+        alert(`Error creating internal page: ${errorMessage}`)
+      }
+    }
+  }, [editor, playbookId, userId, collaborators])
+
+  // Handle internal page content changes
+  const handleInternalPageContentChange = useCallback(async (pageId: string, content: string) => {
+    try {
+      // Update in database
+      await internalPageService.updateInternalPage(pageId, { content })
+      
+      // Update local state
+      setInternalPages(prev => prev.map(page => 
+        page.id === pageId ? { ...page, content } : page
+      ))
+    } catch (error) {
+      console.error('Error updating internal page content:', error)
+    }
+  }, [])
+
+  // Handle internal page close
+  const handleInternalPageClose = useCallback((pageId: string) => {
+    // Don't delete the page, just close the tab
+    if (currentPageId === pageId) {
+      setCurrentPageId(null)
+    }
+  }, [currentPageId])
+
+  // Handle internal page deletion (for future use)
+  const handleInternalPageDelete = useCallback((pageId: string) => {
+    // Remove internal links from the editor
+    if (editor) {
+      editor.chain().focus().removeInternalLinkByPageId(pageId).run()
+    }
+    
+    setInternalPages(prev => prev.filter(page => page.id !== pageId))
+    if (currentPageId === pageId) {
+      setCurrentPageId(null)
+    }
+  }, [currentPageId, editor])
+
+  const handleInternalPageEdit = useCallback((pageId: string) => {
+    setEditingPageId(pageId)
+    setShowInternalPageEditModal(true)
+  }, [])
+
+  const handleInternalPageUpdate = useCallback(async (data: {
+    pageName: string
+    pageTitle: string
+    collaborators: { userId: string; permission: 'owner' | 'edit' | 'view' }[]
+  }) => {
+    if (!editingPageId) return
+
+    try {
+      // Update in database
+      const updatedPage = await internalPageService.updateInternalPage(editingPageId, {
+        page_name: data.pageName,
+        page_title: data.pageTitle,
+        permissions: data.collaborators
+      })
+
+      // Update local state
+      setInternalPages(prev => prev.map(page => 
+        page.id === editingPageId 
+          ? { ...page, page_name: data.pageName, page_title: data.pageTitle }
+          : page
+      ))
+
+      setShowInternalPageEditModal(false)
+      setEditingPageId(null)
+    } catch (error) {
+      console.error('Error updating internal page:', error)
+    }
+  }, [editingPageId])
+
+  const handleInternalPageEditDelete = useCallback(async () => {
+    if (!editingPageId) return
+
+    try {
+      // Delete from database
+      await internalPageService.deleteInternalPage(editingPageId)
+      
+      // Remove internal links from the editor
+      if (editor) {
+        editor.chain().focus().removeInternalLinkByPageId(editingPageId).run()
+      }
+      
+      // Update local state
+      setInternalPages(prev => prev.filter(page => page.id !== editingPageId))
+      if (currentPageId === editingPageId) {
+        setCurrentPageId(null)
+      }
+      setShowInternalPageEditModal(false)
+      setEditingPageId(null)
+    } catch (error) {
+      console.error('Error deleting internal page:', error)
+    }
+  }, [editingPageId, currentPageId, editor])
+
+  // Load internal pages from database when playbook changes
+  useEffect(() => {
+    const loadInternalPages = async () => {
+      if (playbookId && !playbookId.startsWith('temp-')) {
+        try {
+          const pages = await internalPageService.getInternalPages(playbookId)
+          setInternalPages(pages)
+        } catch (error) {
+          console.error('Error loading internal pages:', error)
+          setInternalPages([])
+        }
+      } else {
+        setInternalPages([])
+      }
+    }
+
+    loadInternalPages()
+  }, [playbookId])
+
+  // Listen for internal link clicks
+  useEffect(() => {
+    const handleInternalLinkClick = (event: CustomEvent) => {
+      const { pageId } = event.detail
+      setCurrentPageId(pageId)
+    }
+
+    window.addEventListener('internalLinkClick', handleInternalLinkClick as EventListener)
+    
+    return () => {
+      window.removeEventListener('internalLinkClick', handleInternalLinkClick as EventListener)
+    }
+  }, [])
 
   const formatLastSaved = (date: Date | null) => {
     if (!date) return 'Never'
@@ -388,6 +672,22 @@ export default function PlaybookEditor({
 
   return (
     <div className={`bg-white rounded-lg border border-gray-200 flex flex-col ${className}`}>
+      {/* Page Tabs */}
+        {internalPages.length > 0 && (
+          <PageTabs
+            currentPageId={currentPageId}
+            internalPages={internalPages.map(page => ({
+              id: page.id,
+              name: page.page_name,
+              title: page.page_title,
+              content: page.content
+            }))}
+            onPageSelect={setCurrentPageId}
+            onPageClose={handleInternalPageClose}
+            onPageEdit={handleInternalPageEdit}
+          />
+        )}
+
       {/* Editor Toolbar */}
       <div className="border-b border-gray-200 bg-gray-50 p-2 sticky top-0 z-20 flex-shrink-0">
         <div className="flex items-center gap-2 overflow-x-auto overflow-y-visible toolbar-scroll">
@@ -409,20 +709,20 @@ export default function PlaybookEditor({
         {/* Undo/Redo - Right after saved status */}
         <div className="flex items-center gap-1 border-r border-gray-300 pr-2 mr-2 flex-shrink-0">
           <button
-            onClick={() => editor.chain().focus().undo().run()}
-            disabled={!editor.can().undo()}
+            onClick={() => executeCommand(ed => ed.chain().focus().undo().run())}
+            disabled={!getCurrentEditor()?.can().undo()}
             className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-              !editor.can().undo() ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600'
+              !getCurrentEditor()?.can().undo() ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600'
             }`}
             title="Undo (Ctrl+Z)"
           >
             <Undo className="h-4 w-4" />
           </button>
           <button
-            onClick={() => editor.chain().focus().redo().run()}
-            disabled={!editor.can().redo()}
+            onClick={() => executeCommand(ed => ed.chain().focus().redo().run())}
+            disabled={!getCurrentEditor()?.can().redo()}
             className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-              !editor.can().redo() ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600'
+              !getCurrentEditor()?.can().redo() ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600'
             }`}
             title="Redo (Ctrl+Y)"
           >
@@ -435,27 +735,27 @@ export default function PlaybookEditor({
           {/* Text Formatting */}
           <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
             <button
-                onClick={() => editor.chain().toggleBold().run()}
+                onClick={() => executeCommand(ed => ed.chain().focus().toggleBold().run())}
               className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                editor.isActive('bold') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                getCurrentEditor()?.isActive('bold') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
               }`}
               title="Bold (Ctrl+B)"
             >
               <Bold className="h-4 w-4" />
             </button>
             <button
-                onClick={() => editor.chain().toggleItalic().run()}
+                onClick={() => executeCommand(ed => ed.chain().focus().toggleItalic().run())}
               className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                editor.isActive('italic') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                getCurrentEditor()?.isActive('italic') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
               }`}
               title="Italic (Ctrl+I)"
             >
               <Italic className="h-4 w-4" />
             </button>
             <button
-                onClick={() => editor.chain().toggleUnderline().run()}
+                onClick={() => executeCommand(ed => ed.chain().focus().toggleUnderline().run())}
               className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                editor.isActive('underline') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                getCurrentEditor()?.isActive('underline') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
               }`}
               title="Underline (Ctrl+U)"
             >
@@ -597,6 +897,15 @@ export default function PlaybookEditor({
               <LinkIcon className="h-4 w-4" />
             </button>
             <button
+              onClick={() => setShowInternalPageModal(true)}
+              className={`p-2 rounded hover:bg-gray-200 transition-colors ${
+                editor.isActive('internalLink') ? 'bg-purple-100 text-purple-600' : 'text-gray-600'
+              }`}
+              title="Create Internal Page Link"
+            >
+              <Link2 className="h-4 w-4" />
+            </button>
+            <button
               onClick={addNote}
               className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
               title="Insert Note"
@@ -617,16 +926,34 @@ export default function PlaybookEditor({
             <button
               onClick={() => setShowAssignmentModal(true)}
               className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                editor.isActive('assignment') ? 'bg-green-100 text-green-600' : 'text-gray-600'
+                getCurrentEditor()?.isActive('assignment') ? 'bg-green-100 text-green-600' : 'text-gray-600'
               }`}
               title="Create Assignment"
             >
               <UserCheck className="h-4 w-4" />
             </button>
             <AssignmentFilter 
-              editor={editor} 
+              editor={getCurrentEditor()} 
               onFilterChange={setAssignmentFilter}
             />
+          </div>
+
+          {/* Attachments Section */}
+          <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
+            <button
+              onClick={handleFileAttachment}
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+              title="Attach File"
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setShowAttachmentsPanel(true)}
+              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
+              title="View Attachments"
+            >
+              <FileText className="h-4 w-4" />
+            </button>
           </div>
         </div>
 
@@ -676,8 +1003,9 @@ export default function PlaybookEditor({
             )}
           </div>
         </div>
+      </div>
 
-        {/* Portal Popups */}
+      {/* Portal Popups */}
         {showTextColorPopup && buttonPositions.textColor && createPortal(
           <div
             className="fixed bg-white border border-gray-200 rounded shadow-lg p-2 z-[9999]"
@@ -865,12 +1193,39 @@ export default function PlaybookEditor({
 
       {/* Editor Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className={`relative ${(rightSidebarCollapsed || leftSidebarCollapsed) ? 'pr-[220px]' : ''}`}>
-          <EditorContent 
-            editor={editor} 
-            className="min-h-[500px] p-6 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-20"
-          />
-        </div>
+        {currentPageId ? (
+          // Show internal page editor
+          (() => {
+            const currentPage = internalPages.find(page => page.id === currentPageId)
+            return currentPage ? (
+              <InternalPageEditor
+                ref={internalPageEditorRef}
+                page={{
+                  id: currentPage.id,
+                  name: currentPage.page_name,
+                  title: currentPage.page_title,
+                  content: currentPage.content
+                }}
+                onContentChange={handleInternalPageContentChange}
+                collaborators={collaborators}
+                rightSidebarCollapsed={rightSidebarCollapsed}
+                leftSidebarCollapsed={leftSidebarCollapsed}
+              />
+            ) : (
+              <div className="p-6 text-center text-gray-500">
+                Page not found
+              </div>
+            )
+          })()
+        ) : (
+          // Show main editor
+          <div className={`relative ${(rightSidebarCollapsed || leftSidebarCollapsed) ? 'pr-[220px]' : ''}`}>
+            <EditorContent 
+              editor={editor} 
+              className="min-h-[500px] p-6 focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-opacity-20"
+            />
+          </div>
+        )}
       </div>
 
       {/* Assignment Modal */}
@@ -878,8 +1233,55 @@ export default function PlaybookEditor({
         isOpen={showAssignmentModal}
         onClose={handleModalClose}
         onSave={handleAssignmentSave}
-        currentAttributes={editingAssignment || editor.getAttributes('assignment')}
+        currentAttributes={editingAssignment || getCurrentEditor()?.getAttributes('assignment')}
         availableUsers={collaborators}
+      />
+
+      {/* Attachments Panel */}
+      <AttachmentsPanel
+        editor={getCurrentEditor()}
+        isOpen={showAttachmentsPanel}
+        onClose={() => setShowAttachmentsPanel(false)}
+      />
+
+      {/* Internal Page Modal */}
+      <InternalPageModal
+        isOpen={showInternalPageModal}
+        onClose={() => setShowInternalPageModal(false)}
+        onCreatePage={handleCreateInternalPage}
+        collaborators={collaborators}
+      />
+
+      {/* Internal Page Edit Modal */}
+      {editingPageId && (
+        <InternalPageEditModal
+          isOpen={showInternalPageEditModal}
+          onClose={() => {
+            setShowInternalPageEditModal(false)
+            setEditingPageId(null)
+          }}
+          onUpdate={handleInternalPageUpdate}
+          onDelete={handleInternalPageEditDelete}
+          page={(() => {
+            const page = internalPages.find(page => page.id === editingPageId)
+            return page ? {
+              id: page.id,
+              name: page.page_name,
+              title: page.page_title,
+              content: page.content
+            } : null
+          })()}
+          collaborators={collaborators}
+        />
+      )}
+
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileChange}
+        accept="*/*"
       />
     </div>
   )
@@ -891,7 +1293,16 @@ export function extractTableOfContents(content: string | any): Array<{ id: strin
     // Handle both string and object content
     let parsed: any
     if (typeof content === 'string') {
-      parsed = JSON.parse(content)
+      // Handle empty or invalid JSON strings
+      if (!content || content.trim() === '' || content.trim() === '{}' || content.trim() === '[]') {
+        return []
+      }
+      try {
+        parsed = JSON.parse(content)
+      } catch (jsonError) {
+        console.warn('Invalid JSON content for table of contents:', content)
+        return []
+      }
     } else if (typeof content === 'object' && content !== null) {
       parsed = content
     } else {

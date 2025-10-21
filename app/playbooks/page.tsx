@@ -443,6 +443,8 @@ export default function PlaybooksPage() {
                 collaborators={playbookCollaborators}
                 rightSidebarCollapsed={rightSidebarCollapsed}
                 leftSidebarCollapsed={leftSidebarCollapsed}
+                playbookId={currentPlaybook?.id}
+                userId={user?.id}
               />
             )}
             </div>
