@@ -8,12 +8,16 @@ import { extractPDFText } from '@/lib/pdf-parser'
 
 interface PlaybookGeneratorProps {
   onPlaybookGenerated: (playbook: any) => void
+  onContentGenerated?: (content: any) => void  // New callback for updating existing content
   existingContent?: string
+  mode?: 'create' | 'update'  // New prop to determine behavior
 }
 
 export default function PlaybookGenerator({ 
   onPlaybookGenerated, 
-  existingContent 
+  onContentGenerated,
+  existingContent,
+  mode = 'create'
 }: PlaybookGeneratorProps) {
   const [topic, setTopic] = useState('')
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
@@ -234,7 +238,13 @@ export default function PlaybookGenerator({
       })
       
       console.log('Playbook generation completed:', result)
-      onPlaybookGenerated(result)
+      
+      // Use appropriate callback based on mode
+      if (mode === 'update' && onContentGenerated) {
+        onContentGenerated(result.content)
+      } else {
+        onPlaybookGenerated(result)
+      }
       
       // Clear form
       setTopic('')

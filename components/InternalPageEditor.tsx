@@ -103,7 +103,7 @@ const InternalPageEditor = forwardRef<InternalPageEditorRef, InternalPageEditorP
         types: ['heading', 'paragraph'],
       }),
       Placeholder.configure({
-        placeholder: 'Start writing your internal page...',
+        placeholder: 'Welcome to your playbook editor! Start typing your playbook here, or use the AI generation in the right sidebar to get started...',
       }),
       Link.configure({
         openOnClick: false,
@@ -193,12 +193,21 @@ const InternalPageEditor = forwardRef<InternalPageEditorRef, InternalPageEditorP
 
   // Update editor content when page changes
   useEffect(() => {
-    if (editor && page.content !== editor.getHTML()) {
-      // Add the page title as an h1 at the beginning if it's not already there
-      const contentWithTitle = page.content.includes('<h1>') 
-        ? page.content 
-        : `<h1>${page.title}</h1>${page.content}`
-      editor.commands.setContent(contentWithTitle)
+    if (editor && page.content) {
+      // Handle both string and object content
+      if (typeof page.content === 'string') {
+        // String content (HTML)
+        if (page.content !== editor.getHTML()) {
+          // Add the page title as an h1 at the beginning if it's not already there
+          const contentWithTitle = page.content.includes('<h1>') 
+            ? page.content 
+            : `<h1>${page.title}</h1>${page.content}`
+          editor.commands.setContent(contentWithTitle)
+        }
+      } else {
+        // Object content (TipTap JSON)
+        editor.commands.setContent(page.content)
+      }
     }
   }, [page.content, page.title, editor])
 

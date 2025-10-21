@@ -75,6 +75,8 @@ export default function PlaybooksPage() {
   const [showMarketplaceModal, setShowMarketplaceModal] = useState(false)
   const [tableOfContents, setTableOfContents] = useState<Array<{ id: string; title: string; level: number; sectionNumber: string }>>([])
   const [playbookCollaborators, setPlaybookCollaborators] = useState<Array<{ id: string; name: string; email: string }>>([])
+  const [currentPageId, setCurrentPageId] = useState<string | null>(null)
+  const [generatedContent, setGeneratedContent] = useState<any>(null)
   
   const titleInputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -251,6 +253,41 @@ export default function PlaybooksPage() {
       }
     }
   }, [savePlaybook, user])
+
+  // Handle content generation for existing pages (internal pages or main page updates)
+  const handleContentGenerated = useCallback(async (content: any) => {
+    console.log('Content generated for existing page:', content)
+    
+    if (currentPageId) {
+      // We're on an internal page - pass the content to PlaybookEditor
+      console.log('Content generated for internal page:', currentPageId)
+      setGeneratedContent(content)
+    } else {
+      // We're on the main page - update the main page content
+      console.log('Updating main page content')
+      setEditorContent(content)
+      
+      // Update table of contents
+      const toc = extractTableOfContents(content)
+      setTableOfContents(toc)
+    }
+  }, [currentPageId])
+
+  // Handle current page ID changes from PlaybookEditor
+  const handleCurrentPageChange = useCallback((pageId: string | null) => {
+    setCurrentPageId(pageId)
+  }, [])
+
+  // Clear generated content after it's been processed
+  useEffect(() => {
+    if (generatedContent) {
+      // Clear the generated content after a short delay to allow PlaybookEditor to process it
+      const timer = setTimeout(() => {
+        setGeneratedContent(null)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [generatedContent])
 
   const handleNewPlaybook = useCallback(() => {
     createNewPlaybook()
@@ -446,6 +483,8 @@ export default function PlaybooksPage() {
                 playbookId={currentPlaybook?.id}
                 userId={user?.id}
                 userName={user?.fullName || user?.firstName || user?.emailAddresses?.[0]?.emailAddress || 'Unknown User'}
+                onCurrentPageChange={handleCurrentPageChange}
+                generatedContent={generatedContent}
               />
             )}
             </div>
@@ -472,7 +511,9 @@ export default function PlaybooksPage() {
                 <div className="flex-1 p-3 overflow-y-auto min-h-0">
                     <PlaybookGenerator
                       onPlaybookGenerated={handlePlaybookGenerated}
+                      onContentGenerated={handleContentGenerated}
                       existingContent={editorContent}
+                      mode={currentPageId ? 'update' : 'create'}
                     />
                   </div>
                 )}
