@@ -46,16 +46,14 @@ export const InternalLink = Mark.create<{
   priority: 1000,
 
   keepOnSplit: false,
+  
+  inclusive: false,
 
   onCreate() {
     this.options.HTMLAttributes = {
       'data-internal-link': 'true',
       ...this.options.HTMLAttributes,
     }
-  },
-
-  inclusive() {
-    return this.options.inclusive
   },
 
   addAttributes() {
@@ -190,25 +188,34 @@ export const InternalLink = Mark.create<{
         ({ state, dispatch }) => {
           const { doc } = state
           let tr = state.tr
-          let hasChanges = false
+          const ranges: { from: number; to: number }[] = []
           
-          // Find and remove all internal links with the specified pageId
+          // Find all text nodes with internal links matching the pageId
           doc.descendants((node, pos) => {
             if (node.isText && node.marks) {
-              node.marks.forEach(mark => {
-                if (mark.type.name === 'internalLink' && mark.attrs.pageId === pageId) {
-                  tr = tr.removeMark(pos, pos + node.nodeSize, this.type)
-                  hasChanges = true
-                }
-              })
+              const hasMatchingLink = node.marks.some(
+                mark => mark.type.name === 'internalLink' && mark.attrs.pageId === pageId
+              )
+              if (hasMatchingLink) {
+                // Store the range to delete (including the text)
+                ranges.push({ from: pos, to: pos + node.nodeSize })
+              }
             }
           })
           
-          if (hasChanges && dispatch) {
-            dispatch(tr)
+          // Delete text nodes in reverse order to maintain correct positions
+          if (ranges.length > 0) {
+            ranges.reverse().forEach(range => {
+              tr = tr.delete(range.from, range.to)
+            })
+            
+            if (dispatch) {
+              dispatch(tr)
+            }
+            return true
           }
           
-          return hasChanges
+          return false
         },
       insertInternalLink:
         (attributes: InternalLinkAttributes) =>
@@ -263,30 +270,61 @@ export const InternalLink = Mark.create<{
           },
         },
       }),
-      // Plugin to prevent deletion of internal links
+      // Plugin to prevent deletion and editing of internal links
       new Plugin({
         key: new PluginKey('internalLinkDeletePrevention'),
         props: {
           handleKeyDown(view, event) {
+            const { selection } = view.state
+            const { from, to, $from } = selection
+            const doc = view.state.doc
+            
             // Check for Backspace or Delete keys
             if (event.key === 'Backspace' || event.key === 'Delete') {
-              const { selection } = view.state
-              const { from, to } = selection
+              let hasInternalLink = false
               
-              // Check if the selection contains an internal link
-              const doc = view.state.doc
-              doc.nodesBetween(from, to, (node, pos) => {
-                if (node.isText && node.marks) {
-                  const hasInternalLink = node.marks.some(mark => mark.type.name === 'internalLink')
-                  if (hasInternalLink) {
-                    // Prevent deletion and show warning
-                    event.preventDefault()
-                    alert('Internal page links cannot be deleted directly. Please delete the internal page first.')
-                    return false
+              // Check the selected range
+              if (from !== to) {
+                doc.nodesBetween(from, to, (node) => {
+                  if (node.isText && node.marks) {
+                    if (node.marks.some(mark => mark.type.name === 'internalLink')) {
+                      hasInternalLink = true
+                      return false
+                    }
+                  }
+                })
+              } else {
+                // Check character before cursor (Backspace) or after cursor (Delete)
+                const checkPos = event.key === 'Backspace' ? from - 1 : from
+                if (checkPos >= 0 && checkPos < doc.content.size) {
+                  const resolvedPos = doc.resolve(checkPos)
+                  const node = resolvedPos.parent.childAfter(resolvedPos.parentOffset)
+                  if (node.node && node.node.isText && node.node.marks) {
+                    if (node.node.marks.some(mark => mark.type.name === 'internalLink')) {
+                      hasInternalLink = true
+                    }
                   }
                 }
-              })
+              }
+              
+              if (hasInternalLink) {
+                event.preventDefault()
+                alert('Internal page links cannot be deleted or edited directly. Please use the Edit button on the page tab to delete the internal page.')
+                return true
+              }
             }
+            
+            // Check for any text input that would modify internal link
+            if (event.key.length === 1 || event.key === 'Enter') {
+              // Check if cursor is within an internal link
+              const marks = $from.marks()
+              if (marks.some(mark => mark.type.name === 'internalLink')) {
+                event.preventDefault()
+                alert('Internal page links cannot be edited. Please use the Edit button on the page tab to modify the internal page.')
+                return true
+              }
+            }
+            
             return false
           },
         },

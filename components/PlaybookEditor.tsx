@@ -25,7 +25,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { 
   Bold, Italic, Underline as UnderlineIcon, List, ListOrdered,
-  IndentDecrease, IndentIncrease, Link as LinkIcon, StickyNote, Minus,
+  IndentDecrease, IndentIncrease, Link as LinkIcon, Minus,
   Eye, Download, History, Copy, Palette, Highlighter,
   ChevronDown, ChevronRight, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   UserCheck, Undo, Redo, Paperclip, FileText, Link2
@@ -87,6 +87,7 @@ export default function PlaybookEditor({
   const [showInternalPageEditModal, setShowInternalPageEditModal] = useState(false)
   const [editingPageId, setEditingPageId] = useState<string | null>(null)
   const [internalPages, setInternalPages] = useState<InternalPage[]>([])
+  const [openPageIds, setOpenPageIds] = useState<string[]>([]) // Track which pages have open tabs
   const [currentPageId, setCurrentPageId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const internalPageEditorRef = useRef<InternalPageEditorRef>(null)
@@ -229,26 +230,6 @@ export default function PlaybookEditor({
     editor.chain().extendMarkRange('link').setLink({ href: url }).run()
   }, [editor])
 
-  const addNote = useCallback(() => {
-    if (!editor) return
-    editor.chain().insertContent({
-      type: 'blockquote',
-      attrs: {},
-      content: [
-        {
-          type: 'paragraph',
-          content: [
-            {
-              type: 'text',
-              text: '📝 Note: ',
-              marks: [{ type: 'bold' }]
-            }
-          ]
-        }
-      ]
-    }).run()
-  }, [editor])
-
   const addHorizontalRule = useCallback(() => {
     if (!editor) return
     editor.chain().setHorizontalRule().run()
@@ -321,6 +302,10 @@ export default function PlaybookEditor({
 
       // Add to local state
       setInternalPages(prev => [...prev, newPage])
+      
+      // Add to open tabs and set as current page
+      setOpenPageIds(prev => [...prev, newPage.id])
+      setCurrentPageId(newPage.id)
 
       // Find current user's name from collaborators
       const currentUser = collaborators?.find(c => c.id === userId)
@@ -384,7 +369,9 @@ export default function PlaybookEditor({
 
   // Handle internal page close
   const handleInternalPageClose = useCallback((pageId: string) => {
-    // Don't delete the page, just close the tab
+    // Remove the page from open tabs
+    setOpenPageIds(prev => prev.filter(id => id !== pageId))
+    // If the closed page was the current page, switch to main page
     if (currentPageId === pageId) {
       setCurrentPageId(null)
     }
@@ -397,7 +384,9 @@ export default function PlaybookEditor({
       editor.chain().focus().removeInternalLinkByPageId(pageId).run()
     }
     
+    // Remove from all state
     setInternalPages(prev => prev.filter(page => page.id !== pageId))
+    setOpenPageIds(prev => prev.filter(id => id !== pageId))
     if (currentPageId === pageId) {
       setCurrentPageId(null)
     }
@@ -451,6 +440,7 @@ export default function PlaybookEditor({
       
       // Update local state
       setInternalPages(prev => prev.filter(page => page.id !== editingPageId))
+      setOpenPageIds(prev => prev.filter(id => id !== editingPageId))
       if (currentPageId === editingPageId) {
         setCurrentPageId(null)
       }
@@ -484,6 +474,14 @@ export default function PlaybookEditor({
   useEffect(() => {
     const handleInternalLinkClick = (event: CustomEvent) => {
       const { pageId } = event.detail
+      // Add to open tabs if not already open
+      setOpenPageIds(prev => {
+        if (prev.includes(pageId)) {
+          return prev
+        }
+        return [...prev, pageId]
+      })
+      // Set as current page
       setCurrentPageId(pageId)
     }
 
@@ -673,15 +671,17 @@ export default function PlaybookEditor({
   return (
     <div className={`bg-white rounded-lg border border-gray-200 flex flex-col ${className}`}>
       {/* Page Tabs */}
-        {internalPages.length > 0 && (
+        {openPageIds.length > 0 && (
           <PageTabs
             currentPageId={currentPageId}
-            internalPages={internalPages.map(page => ({
-              id: page.id,
-              name: page.page_name,
-              title: page.page_title,
-              content: page.content
-            }))}
+            internalPages={internalPages
+              .filter(page => openPageIds.includes(page.id))
+              .map(page => ({
+                id: page.id,
+                name: page.page_name,
+                title: page.page_title,
+                content: page.content
+              }))}
             onPageSelect={setCurrentPageId}
             onPageClose={handleInternalPageClose}
             onPageEdit={handleInternalPageEdit}
@@ -904,13 +904,6 @@ export default function PlaybookEditor({
               title="Create Internal Page Link"
             >
               <Link2 className="h-4 w-4" />
-            </button>
-            <button
-              onClick={addNote}
-              className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
-              title="Insert Note"
-            >
-              <StickyNote className="h-4 w-4" />
             </button>
             <button
               onClick={addHorizontalRule}
