@@ -445,6 +445,7 @@ export default function PlaybooksPage() {
                 leftSidebarCollapsed={leftSidebarCollapsed}
                 playbookId={currentPlaybook?.id}
                 userId={user?.id}
+                userName={user?.fullName || user?.firstName || user?.emailAddresses?.[0]?.emailAddress || 'Unknown User'}
               />
             )}
             </div>

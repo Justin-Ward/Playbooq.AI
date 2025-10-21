@@ -130,8 +130,9 @@ export const InternalLink = Mark.create<{
   },
 
   renderHTML({ HTMLAttributes }) {
-    const title = HTMLAttributes.createdByName 
-      ? `Created by ${HTMLAttributes.createdByName}` 
+    const createdByName = HTMLAttributes['data-created-by-name'] || HTMLAttributes.createdByName
+    const title = createdByName 
+      ? `Internal page link. Created by ${createdByName}` 
       : 'Internal page link'
     
     return [
@@ -221,7 +222,7 @@ export const InternalLink = Mark.create<{
         (attributes: InternalLinkAttributes) =>
         ({ commands }) => {
           const title = attributes.createdByName 
-            ? `Created by ${attributes.createdByName}` 
+            ? `Internal page link. Created by ${attributes.createdByName}` 
             : 'Internal page link'
           const createdByAttr = attributes.createdBy ? ` data-created-by="${attributes.createdBy}"` : ''
           const createdByNameAttr = attributes.createdByName ? ` data-created-by-name="${attributes.createdByName}"` : ''

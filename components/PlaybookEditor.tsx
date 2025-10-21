@@ -51,6 +51,7 @@ interface PlaybookEditorProps {
       leftSidebarCollapsed?: boolean
       playbookId?: string
       userId?: string
+      userName?: string
 }
 
 export default function PlaybookEditor({
@@ -71,7 +72,8 @@ export default function PlaybookEditor({
   rightSidebarCollapsed = false,
   leftSidebarCollapsed = false,
   playbookId,
-  userId
+  userId,
+  userName
 }: PlaybookEditorProps) {
   const [showTextColorPopup, setShowTextColorPopup] = useState(false)
   const [showHighlightPopup, setShowHighlightPopup] = useState(false)
@@ -307,9 +309,8 @@ export default function PlaybookEditor({
       setOpenPageIds(prev => [...prev, newPage.id])
       setCurrentPageId(newPage.id)
 
-      // Find current user's name from collaborators
-      const currentUser = collaborators?.find(c => c.id === userId)
-      const createdByName = currentUser?.name || 'Unknown User'
+      // Use the userName prop directly from Clerk user data
+      const createdByName = userName || 'Unknown User'
 
       // Create internal link in editor
       const linkAttrs = {
@@ -402,7 +403,7 @@ export default function PlaybookEditor({
     pageTitle: string
     collaborators: { userId: string; permission: 'owner' | 'edit' | 'view' }[]
   }) => {
-    if (!editingPageId) return
+    if (!editingPageId || !editor) return
 
     try {
       // Update in database
@@ -419,12 +420,45 @@ export default function PlaybookEditor({
           : page
       ))
 
+      // Update all internal link marks in the editor with this page ID
+      const { doc } = editor.state
+      let tr = editor.state.tr
+      let hasChanges = false
+
+      doc.descendants((node, pos) => {
+        if (node.isText && node.marks) {
+          node.marks.forEach(mark => {
+            if (mark.type.name === 'internalLink' && mark.attrs.pageId === editingPageId) {
+              // Update the mark attributes with new page name and title
+              const newAttrs = {
+                ...mark.attrs,
+                pageName: data.pageName,
+                pageTitle: data.pageTitle
+              }
+              
+              // Remove old mark and add new one with updated attributes
+              tr = tr.removeMark(pos, pos + node.nodeSize, mark.type)
+              tr = tr.addMark(pos, pos + node.nodeSize, mark.type.create(newAttrs))
+              
+              // Replace the text content with the new page name
+              tr = tr.replaceWith(pos, pos + node.nodeSize, editor.schema.text(data.pageName, [mark.type.create(newAttrs)]))
+              
+              hasChanges = true
+            }
+          })
+        }
+      })
+
+      if (hasChanges) {
+        editor.view.dispatch(tr)
+      }
+
       setShowInternalPageEditModal(false)
       setEditingPageId(null)
     } catch (error) {
       console.error('Error updating internal page:', error)
     }
-  }, [editingPageId])
+  }, [editingPageId, editor])
 
   const handleInternalPageEditDelete = useCallback(async () => {
     if (!editingPageId) return
