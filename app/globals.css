@@ -441,3 +441,22 @@ body {
 .ProseMirror .internal-link:visited {
   color: #7c3aed;
 }
+
+/* Image Styles */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.ProseMirror img:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.ProseMirror img:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}

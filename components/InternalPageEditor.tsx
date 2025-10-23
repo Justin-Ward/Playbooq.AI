@@ -13,6 +13,9 @@ import { Assignment, AssignmentAttributes } from '@/lib/extensions/Assignment'
 import { AssignmentDecorations } from '@/lib/extensions/AssignmentDecorations'
 import { Attachment, AttachmentAttributes } from '@/lib/extensions/Attachment'
 import { InternalLink } from '@/lib/extensions/InternalLink'
+import Image from '@tiptap/extension-image'
+import { Plugin } from '@tiptap/pm/state'
+import { Extension } from '@tiptap/core'
 import AssignmentModal from './AssignmentModal'
 import AssignmentFilter from './AssignmentFilter'
 import AttachmentsPanel from './AttachmentsPanel'
@@ -21,7 +24,7 @@ import {
   IndentDecrease, IndentIncrease, Link as LinkIcon, StickyNote, Minus,
   Eye, Download, History, Copy, Palette, Highlighter,
   ChevronDown, ChevronRight, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  UserCheck, Undo, Redo, Paperclip, FileText
+  UserCheck, Undo, Redo, Paperclip, FileText, Image as ImageIcon
 } from 'lucide-react'
 
 interface InternalPage {
@@ -75,6 +78,75 @@ const InternalPageEditor = forwardRef<InternalPageEditorRef, InternalPageEditorP
     }, 3000)
   }, [onContentChange])
 
+  // Handle image upload
+  const handleImageUpload = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        resolve(reader.result as string)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }, [])
+
+  // Image upload extension for paste and drop
+  const ImageUploadExtension = useCallback(() => {
+    return Extension.create({
+      name: 'imageUpload',
+      addProseMirrorPlugins() {
+        return [
+          new Plugin({
+            props: {
+              handlePaste(view, event) {
+                const items = Array.from(event.clipboardData?.items || [])
+                for (const item of items) {
+                  const file = item.getAsFile()
+                  if (file && file.type.startsWith('image/')) {
+                    event.preventDefault()
+                    handleImageUpload(file).then((url) => {
+                      view.dispatch(
+                        view.state.tr.replaceSelectionWith(
+                          view.state.schema.nodes.image.create({ src: url })
+                        )
+                      )
+                    })
+                    return true
+                  }
+                }
+                return false
+              },
+              handleDrop(view, event) {
+                const files = Array.from(event.dataTransfer?.files || [])
+                for (const file of files) {
+                  if (file.type.startsWith('image/')) {
+                    event.preventDefault()
+                    handleImageUpload(file).then((url) => {
+                      const coordinates = view.posAtCoords({
+                        left: event.clientX,
+                        top: event.clientY,
+                      })
+                      if (coordinates) {
+                        view.dispatch(
+                          view.state.tr.insert(
+                            coordinates.pos,
+                            view.state.schema.nodes.image.create({ src: url })
+                          )
+                        )
+                      }
+                    })
+                    return true
+                  }
+                }
+                return false
+              },
+            },
+          })
+        ]
+      },
+    })
+  }, [handleImageUpload])
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -103,6 +175,13 @@ const InternalPageEditor = forwardRef<InternalPageEditorRef, InternalPageEditorP
           class: 'text-blue-600 underline cursor-pointer',
         },
       }),
+      Image.configure({
+        inline: false,
+        HTMLAttributes: {
+          class: 'max-w-full h-auto rounded-lg',
+        },
+      }),
+      ImageUploadExtension(),
       Assignment.configure({
         HTMLAttributes: {
           class: 'assignment-mark',
@@ -265,30 +344,44 @@ const InternalPageEditor = forwardRef<InternalPageEditorRef, InternalPageEditorP
     }
   }, [])
 
+  // Handle image insertion
+  const handleImageInsert = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
+  }, [])
+
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !editor) return
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const fileUrl = e.target?.result as string
-      
-      const attachmentAttrs: AttachmentAttributes = {
-        fileName: file.name,
-        fileUrl: fileUrl,
-        fileSize: file.size,
-        fileType: file.type || file.name.split('.').pop() || 'file',
-        uploadDate: new Date().toISOString(),
-      }
+    // Handle images differently from other files
+    if (file.type.startsWith('image/')) {
+      handleImageUpload(file).then((url) => {
+        editor.chain().focus().setImage({ src: url }).run()
+      })
+    } else {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const fileUrl = e.target?.result as string
+        
+        const attachmentAttrs: AttachmentAttributes = {
+          fileName: file.name,
+          fileUrl: fileUrl,
+          fileSize: file.size,
+          fileType: file.type || file.name.split('.').pop() || 'file',
+          uploadDate: new Date().toISOString(),
+        }
 
-      editor.chain().focus().addAttachment(attachmentAttrs).run()
+        editor.chain().focus().addAttachment(attachmentAttrs).run()
+      }
+      reader.readAsDataURL(file)
     }
-    reader.readAsDataURL(file)
 
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-  }, [editor])
+  }, [editor, handleImageUpload])
 
   if (!editor) {
     return <div>Loading editor...</div>
@@ -328,7 +421,7 @@ const InternalPageEditor = forwardRef<InternalPageEditorRef, InternalPageEditorP
         type="file"
         className="hidden"
         onChange={handleFileChange}
-        accept="*/*"
+        accept="image/*,*/*"
       />
     </div>
   )
