@@ -82,6 +82,7 @@ const InternalPageEditor = forwardRef<InternalPageEditorRef, InternalPageEditorP
         history: {
           depth: 100,
         },
+        heading: { levels: [1, 2, 3, 4] },
       }),
       TextStyle,
       Color,

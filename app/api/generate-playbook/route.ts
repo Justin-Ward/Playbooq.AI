@@ -76,6 +76,36 @@ function markdownToTiptap(markdown: string): any {
   const nodes: any[] = []
   let currentList: any[] | null = null
   
+  // Helper function to process inline formatting (bold, etc.)
+  function processInlineFormatting(text: string): any[] {
+    const parts: any[] = []
+    let remaining = text
+    
+    while (remaining.length > 0) {
+      const boldMatch = remaining.match(/\*\*(.*?)\*\*/)
+      if (boldMatch) {
+        // Add text before bold
+        if (boldMatch.index! > 0) {
+          parts.push({ type: 'text', text: remaining.substring(0, boldMatch.index) })
+        }
+        // Add bold text
+        parts.push({ 
+          type: 'text', 
+          text: boldMatch[1], 
+          marks: [{ type: 'bold' }] 
+        })
+        // Continue with remaining text
+        remaining = remaining.substring(boldMatch.index! + boldMatch[0].length)
+      } else {
+        // No more bold formatting, add remaining text
+        parts.push({ type: 'text', text: remaining })
+        break
+      }
+    }
+    
+    return parts.length > 0 ? parts : [{ type: 'text', text }]
+  }
+  
   for (const line of lines) {
     const trimmedLine = line.trim()
     
@@ -90,49 +120,61 @@ function markdownToTiptap(markdown: string): any {
       continue
     }
     
-    // Headers
+    // Headers with bold formatting
     if (trimmedLine.startsWith('# ')) {
+      const headerText = trimmedLine.substring(2)
       nodes.push({
         type: 'heading',
         attrs: { level: 1 },
-        content: [{ type: 'text', text: trimmedLine.substring(2) }]
+        content: processInlineFormatting(headerText)
       })
     } else if (trimmedLine.startsWith('## ')) {
+      const headerText = trimmedLine.substring(3)
       nodes.push({
         type: 'heading',
         attrs: { level: 2 },
-        content: [{ type: 'text', text: trimmedLine.substring(3) }]
+        content: processInlineFormatting(headerText)
       })
     } else if (trimmedLine.startsWith('### ')) {
+      const headerText = trimmedLine.substring(4)
       nodes.push({
         type: 'heading',
         attrs: { level: 3 },
-        content: [{ type: 'text', text: trimmedLine.substring(4) }]
+        content: processInlineFormatting(headerText)
+      })
+    } else if (trimmedLine.startsWith('#### ')) {
+      const headerText = trimmedLine.substring(5)
+      nodes.push({
+        type: 'heading',
+        attrs: { level: 4 },
+        content: processInlineFormatting(headerText)
       })
     }
-    // Lists
+    // Lists with inline formatting
     else if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
       if (!currentList) currentList = []
+      const listText = trimmedLine.substring(2)
       currentList.push({
         type: 'listItem',
         content: [{
           type: 'paragraph',
-          content: [{ type: 'text', text: trimmedLine.substring(2) }]
+          content: processInlineFormatting(listText)
         }]
       })
     }
-    // Numbered lists
+    // Numbered lists with inline formatting
     else if (/^\d+\. /.test(trimmedLine)) {
       if (!currentList) currentList = []
+      const listText = trimmedLine.replace(/^\d+\. /, '')
       currentList.push({
         type: 'listItem',
         content: [{
           type: 'paragraph',
-          content: [{ type: 'text', text: trimmedLine.replace(/^\d+\. /, '') }]
+          content: processInlineFormatting(listText)
         }]
       })
     }
-    // Regular paragraphs
+    // Regular paragraphs with inline formatting
     else {
       if (currentList) {
         nodes.push({
@@ -143,7 +185,7 @@ function markdownToTiptap(markdown: string): any {
       }
       nodes.push({
         type: 'paragraph',
-        content: [{ type: 'text', text: trimmedLine }]
+        content: processInlineFormatting(trimmedLine)
       })
     }
   }
