@@ -75,15 +75,6 @@ const InternalPageEditor = forwardRef<InternalPageEditorRef, InternalPageEditorP
     }, 3000)
   }, [onContentChange])
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current)
-      }
-    }
-  }, [])
-
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -138,6 +129,21 @@ const InternalPageEditor = forwardRef<InternalPageEditorRef, InternalPageEditorP
     getEditor: () => editor
   }), [editor])
 
+  // Cleanup timeout on unmount and save immediately if there's pending content
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        // Save immediately when component unmounts
+        clearTimeout(saveTimeoutRef.current)
+        if (editor) {
+          const content = editor.getHTML()
+          const contentWithoutTitle = content.replace(/^<h1>.*?<\/h1>\s*/, '')
+          onContentChange(page.id, contentWithoutTitle)
+        }
+      }
+    }
+  }, [editor, page.id, onContentChange])
+
   // Handle assignment removal
   useEffect(() => {
     if (assignmentToRemovePos !== null && editor) {
@@ -191,22 +197,28 @@ const InternalPageEditor = forwardRef<InternalPageEditorRef, InternalPageEditorP
     }
   }, [editor, assignmentFilter])
 
-  // Update editor content when page changes
+  // Update editor content when page changes - only on initial load
   useEffect(() => {
     if (editor && page.content) {
       // Handle both string and object content
       if (typeof page.content === 'string') {
         // String content (HTML)
-        if (page.content !== editor.getHTML()) {
-          // Add the page title as an h1 at the beginning if it's not already there
-          const contentWithTitle = page.content.includes('<h1>') 
-            ? page.content 
-            : `<h1>${page.title}</h1>${page.content}`
-          editor.commands.setContent(contentWithTitle)
+        const currentEditorContent = editor.getHTML()
+        // Only update if the editor is completely empty (initial load)
+        if (currentEditorContent.trim() === '' || 
+            currentEditorContent.trim() === '<p></p>' ||
+            currentEditorContent.trim() === '<p><br></p>') {
+          // Don't automatically add the page title as an H1 - just use the page content as is
+          editor.commands.setContent(page.content)
         }
       } else {
-        // Object content (TipTap JSON)
-        editor.commands.setContent(page.content)
+        // Object content (TipTap JSON) - only update if editor is empty
+        const currentEditorContent = editor.getHTML()
+        if (currentEditorContent.trim() === '' || 
+            currentEditorContent.trim() === '<p></p>' ||
+            currentEditorContent.trim() === '<p><br></p>') {
+          editor.commands.setContent(page.content)
+        }
       }
     }
   }, [page.content, page.title, editor])

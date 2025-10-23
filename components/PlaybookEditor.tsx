@@ -46,7 +46,7 @@ interface PlaybookEditorProps {
       lastSaved?: Date | null
       trackChangesEnabled?: boolean
       onToggleTrackChanges?: () => void
-      collaborators?: Array<{ id: string; name: string; email: string }>
+      collaborators?: Array<{ id: string; name: string; email: string; permission_level?: 'owner' | 'edit' | 'view' }>
       rightSidebarCollapsed?: boolean
       leftSidebarCollapsed?: boolean
       playbookId?: string
@@ -164,6 +164,7 @@ export default function PlaybookEditor({
           class: 'text-blue-600 underline cursor-pointer hover:text-blue-800',
         },
       }),
+      // Temporarily disable all custom extensions to fix UI
       Assignment,
       AssignmentDecorations.configure({
         onEdit: (attrs) => {
@@ -235,6 +236,34 @@ export default function PlaybookEditor({
         } else {
           newContent = { type: 'doc', content: [] }
         }
+
+        // Transform the content to professional formatting
+        console.log('Original content type:', typeof newContent)
+        console.log('Original content sample:', JSON.stringify(newContent).substring(0, 500))
+        
+        // Check if content has actual text content before transforming
+        const hasTextContent = (node: any): boolean => {
+          if (node.type === 'text' && node.text && node.text.trim()) {
+            return true
+          }
+          if (node.content) {
+            return node.content.some(hasTextContent)
+          }
+          return false
+        }
+        
+        // Temporarily disable transformation to fix UI
+        // if (newContent && newContent.content && hasTextContent(newContent)) {
+        //   const transformed = autoTransformContent(newContent)
+        //   if (transformed.transformations.length > 0) {
+        //     console.log('Applied content transformations:', transformed.transformations)
+        //     newContent = transformed.content
+        //   } else {
+        //     console.log('No transformations applied')
+        //   }
+        // } else {
+        //   console.log('Skipping transformation - no text content found')
+        // }
         
         // Only update if content is actually different AND the editor is not currently focused
         // This prevents cursor reset when user is actively typing
@@ -253,23 +282,25 @@ export default function PlaybookEditor({
   }, [editor, content])
 
   const setLink = useCallback(() => {
-    if (!editor) return
-    const previousUrl = editor.getAttributes('link').href
+    const currentEditor = getCurrentEditor()
+    if (!currentEditor) return
+    const previousUrl = currentEditor.getAttributes('link').href
     const url = window.prompt('URL', previousUrl)
 
     if (url === null) return
     if (url === '') {
-      editor.chain().extendMarkRange('link').unsetLink().run()
+      currentEditor.chain().extendMarkRange('link').unsetLink().run()
       return
     }
 
-    editor.chain().extendMarkRange('link').setLink({ href: url }).run()
-  }, [editor])
+    currentEditor.chain().extendMarkRange('link').setLink({ href: url }).run()
+  }, [getCurrentEditor])
 
   const addHorizontalRule = useCallback(() => {
-    if (!editor) return
-    editor.chain().setHorizontalRule().run()
-  }, [editor])
+    const currentEditor = getCurrentEditor()
+    if (!currentEditor) return
+    currentEditor.chain().setHorizontalRule().run()
+  }, [getCurrentEditor])
 
   // Handle file attachment
   const handleFileAttachment = useCallback(() => {
@@ -280,7 +311,8 @@ export default function PlaybookEditor({
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (!file || !editor) return
+    const currentEditor = getCurrentEditor()
+    if (!file || !currentEditor) return
 
     // Convert file to base64 data URL for storage
     const reader = new FileReader()
@@ -295,7 +327,7 @@ export default function PlaybookEditor({
         uploadDate: new Date().toISOString(),
       }
 
-      editor.chain().focus().addAttachment(attachmentAttrs).run()
+      currentEditor.chain().focus().addAttachment(attachmentAttrs).run()
     }
     reader.readAsDataURL(file)
 
@@ -303,7 +335,7 @@ export default function PlaybookEditor({
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-  }, [editor])
+  }, [getCurrentEditor])
 
   // Handle internal page creation
   const handleCreateInternalPage = useCallback(async (data: {
@@ -356,16 +388,23 @@ export default function PlaybookEditor({
       }
 
       // Check if there's selected text
-      const { from, to } = editor.state.selection
-      const selectedText = editor.state.doc.textBetween(from, to)
+      const currentEditor = getCurrentEditor()
+      if (!currentEditor) return
+      
+      const { from, to } = currentEditor.state.selection
+      const selectedText = currentEditor.state.doc.textBetween(from, to)
       
       if (selectedText) {
         // If text is selected, apply the mark to the selected text
-        editor.chain().focus().setMark('internalLink', linkAttrs).run()
+        currentEditor.chain().focus().setMark('internalLink', linkAttrs).run()
       } else {
-        // If no text is selected, insert the page name as a link
-        editor.chain().focus().insertInternalLink(linkAttrs).run()
+        // If no text is selected, use the insertInternalLink command to properly create the link
+        currentEditor.commands.insertInternalLink(linkAttrs)
       }
+      
+      // Debug: Log the current HTML content to see if the link was created properly
+      console.log('Internal link created:', linkAttrs)
+      console.log('Editor HTML:', currentEditor.getHTML())
     } catch (error) {
       console.error('Error creating internal page:', error)
       
@@ -385,7 +424,7 @@ export default function PlaybookEditor({
         alert(`Error creating internal page: ${errorMessage}`)
       }
     }
-  }, [editor, playbookId, userId, collaborators])
+  }, [getCurrentEditor, playbookId, userId, collaborators])
 
   // Handle internal page content changes
   const handleInternalPageContentChange = useCallback(async (pageId: string, content: string) => {
@@ -414,9 +453,17 @@ export default function PlaybookEditor({
 
   // Handle internal page deletion (for future use)
   const handleInternalPageDelete = useCallback((pageId: string) => {
-    // Remove internal links from the editor
+    // Remove internal links from the main editor
     if (editor) {
       editor.chain().focus().removeInternalLinkByPageId(pageId).run()
+    }
+    
+    // Remove internal links from the internal page editor if it exists
+    if (internalPageEditorRef.current) {
+      const internalEditor = internalPageEditorRef.current.getEditor()
+      if (internalEditor) {
+        internalEditor.chain().focus().removeInternalLinkByPageId(pageId).run()
+      }
     }
     
     // Remove from all state
@@ -501,9 +548,17 @@ export default function PlaybookEditor({
       // Delete from database
       await internalPageService.deleteInternalPage(editingPageId)
       
-      // Remove internal links from the editor
+      // Remove internal links from the main editor
       if (editor) {
         editor.chain().focus().removeInternalLinkByPageId(editingPageId).run()
+      }
+      
+      // Remove internal links from the internal page editor if it exists
+      if (internalPageEditorRef.current) {
+        const internalEditor = internalPageEditorRef.current.getEditor()
+        if (internalEditor) {
+          internalEditor.chain().focus().removeInternalLinkByPageId(editingPageId).run()
+        }
       }
       
       // Update local state
@@ -574,15 +629,17 @@ export default function PlaybookEditor({
   }
 
   const handleAssignmentSave = (attributes: AssignmentAttributes) => {
-    if (editor) {
-      editor.chain().focus().addAssignment(attributes).run()
+    const currentEditor = getCurrentEditor()
+    if (currentEditor) {
+      currentEditor.chain().focus().addAssignment(attributes).run()
       setEditingAssignment(null)
     }
   }
 
   const handleAssignmentRemove = () => {
-    if (editor) {
-      editor.chain().focus().removeAssignment().run()
+    const currentEditor = getCurrentEditor()
+    if (currentEditor) {
+      currentEditor.chain().focus().removeAssignment().run()
     }
   }
 
@@ -666,7 +723,7 @@ export default function PlaybookEditor({
         
         if (anySidebarCollapsed) {
           // Any sidebar collapsed: always show widgets in right margin
-          htmlWidget.style.right = '-500px'
+          htmlWidget.style.right = '-240px'
           htmlWidget.style.opacity = '1'
           htmlWidget.style.pointerEvents = 'auto'
         } else {
@@ -720,10 +777,10 @@ export default function PlaybookEditor({
 
     const editorElement = document.querySelector('.ProseMirror')
     if (editorElement) {
-      editorElement.addEventListener('mousemove', handleMouseMove)
+      editorElement.addEventListener('mousemove', handleMouseMove as EventListener)
       
       return () => {
-        editorElement.removeEventListener('mousemove', handleMouseMove)
+        editorElement.removeEventListener('mousemove', handleMouseMove as EventListener)
       }
     }
   }, [editor, rightSidebarCollapsed, leftSidebarCollapsed])
@@ -748,11 +805,14 @@ export default function PlaybookEditor({
                 id: page.id,
                 name: page.page_name,
                 title: page.page_title,
-                content: page.content
+                content: page.content,
+                created_by: page.created_by,
+                permissions: page.permissions
               }))}
             onPageSelect={setCurrentPageId}
             onPageClose={handleInternalPageClose}
             onPageEdit={handleInternalPageEdit}
+            currentUserId={userId}
           />
         )}
 
@@ -834,18 +894,18 @@ export default function PlaybookEditor({
           {/* Lists */}
           <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
             <button
-                onClick={() => editor.chain().toggleBulletList().run()}
+                onClick={() => executeCommand(editor => editor.chain().toggleBulletList().run())}
               className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                editor.isActive('bulletList') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                getCurrentEditor()?.isActive('bulletList') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
               }`}
               title="Bullet List"
             >
               <List className="h-4 w-4" />
             </button>
             <button
-                onClick={() => editor.chain().toggleOrderedList().run()}
+                onClick={() => executeCommand(editor => editor.chain().toggleOrderedList().run())}
               className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                editor.isActive('orderedList') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                getCurrentEditor()?.isActive('orderedList') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
               }`}
               title="Numbered List"
             >
@@ -856,14 +916,14 @@ export default function PlaybookEditor({
           {/* Indentation */}
           <div className="flex items-center gap-1 border-r border-gray-300 pr-2">
             <button
-                onClick={() => editor.chain().liftListItem('listItem').run()}
+                onClick={() => executeCommand(editor => editor.chain().liftListItem('listItem').run())}
               className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
               title="Decrease Indent"
             >
               <IndentDecrease className="h-4 w-4" />
             </button>
             <button
-                onClick={() => editor.chain().sinkListItem('listItem').run()}
+                onClick={() => executeCommand(editor => editor.chain().sinkListItem('listItem').run())}
               className="p-2 rounded hover:bg-gray-200 transition-colors text-gray-600"
               title="Increase Indent"
             >
@@ -904,12 +964,12 @@ export default function PlaybookEditor({
                     setShowFontEditorPopup(false)
                   }}
                 className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                    editor.isActive({ textAlign: 'left' }) ||
-                    editor.isActive({ textAlign: 'center' }) ||
-                    editor.isActive({ textAlign: 'right' }) ||
-                    editor.isActive({ textAlign: 'justify' })
+                    getCurrentEditor()?.isActive({ textAlign: 'left' }) ||
+                    getCurrentEditor()?.isActive({ textAlign: 'center' }) ||
+                    getCurrentEditor()?.isActive({ textAlign: 'right' }) ||
+                    getCurrentEditor()?.isActive({ textAlign: 'justify' })
                       ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
-                }`}
+                  }`}
                 title="Text Alignment"
               >
                 <AlignLeft className="h-4 w-4" />
@@ -958,7 +1018,7 @@ export default function PlaybookEditor({
             <button
               onClick={setLink}
               className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                editor.isActive('link') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
+                getCurrentEditor()?.isActive('link') ? 'bg-blue-100 text-blue-600' : 'text-gray-600'
               }`}
               title="Insert Link (Ctrl+K)"
             >
@@ -967,7 +1027,7 @@ export default function PlaybookEditor({
             <button
               onClick={() => setShowInternalPageModal(true)}
               className={`p-2 rounded hover:bg-gray-200 transition-colors ${
-                editor.isActive('internalLink') ? 'bg-purple-100 text-purple-600' : 'text-gray-600'
+                getCurrentEditor()?.isActive('internalLink') ? 'bg-purple-100 text-purple-600' : 'text-gray-600'
               }`}
               title="Create Internal Page Link"
             >
@@ -993,7 +1053,7 @@ export default function PlaybookEditor({
             >
               <UserCheck className="h-4 w-4" />
             </button>
-            <AssignmentFilter 
+            <AssignmentFilter
               editor={getCurrentEditor()} 
               onFilterChange={setAssignmentFilter}
             />
@@ -1016,6 +1076,7 @@ export default function PlaybookEditor({
               <FileText className="h-4 w-4" />
             </button>
           </div>
+
         </div>
 
         {/* Right Side - Document Actions */}
@@ -1081,7 +1142,7 @@ export default function PlaybookEditor({
                 <button
                   key={`text-${index}-${color}`}
                   onClick={() => {
-                    editor.chain().setColor(color).run()
+                    executeCommand(editor => editor.chain().setColor(color).run())
                     setShowTextColorPopup(false)
                   }}
                   className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
@@ -1108,7 +1169,7 @@ export default function PlaybookEditor({
                 <button
                   key={`highlight-${index}-${color}`}
                   onClick={() => {
-                    editor.chain().toggleHighlight({ color }).run()
+                    executeCommand(editor => editor.chain().toggleHighlight({ color }).run())
                     setShowHighlightPopup(false)
                   }}
                   className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
@@ -1133,11 +1194,11 @@ export default function PlaybookEditor({
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => {
-                  editor.chain().setTextAlign('left').run()
+                  executeCommand(editor => editor.chain().setTextAlign('left').run())
                   setShowTextAlignPopup(false)
                 }}
                 className={`p-3 rounded hover:bg-gray-200 transition-colors flex items-center justify-center border ${
-                  editor.isActive({ textAlign: 'left' }) ? 'bg-blue-100 text-blue-600 border-blue-300' : 'text-gray-600 border-gray-200'
+                  getCurrentEditor()?.isActive({ textAlign: 'left' }) ? 'bg-blue-100 text-blue-600 border-blue-300' : 'text-gray-600 border-gray-200'
                 }`}
                 title="Align Left"
               >
@@ -1145,11 +1206,11 @@ export default function PlaybookEditor({
               </button>
               <button
                 onClick={() => {
-                  editor.chain().setTextAlign('center').run()
+                  executeCommand(editor => editor.chain().setTextAlign('center').run())
                   setShowTextAlignPopup(false)
                 }}
                 className={`p-3 rounded hover:bg-gray-200 transition-colors flex items-center justify-center border ${
-                  editor.isActive({ textAlign: 'center' }) ? 'bg-blue-100 text-blue-600 border-blue-300' : 'text-gray-600 border-gray-200'
+                  getCurrentEditor()?.isActive({ textAlign: 'center' }) ? 'bg-blue-100 text-blue-600 border-blue-300' : 'text-gray-600 border-gray-200'
                 }`}
                 title="Align Center"
               >
@@ -1157,11 +1218,11 @@ export default function PlaybookEditor({
               </button>
               <button
                 onClick={() => {
-                  editor.chain().setTextAlign('right').run()
+                  executeCommand(editor => editor.chain().setTextAlign('right').run())
                   setShowTextAlignPopup(false)
                 }}
                 className={`p-3 rounded hover:bg-gray-200 transition-colors flex items-center justify-center border ${
-                  editor.isActive({ textAlign: 'right' }) ? 'bg-blue-100 text-blue-600 border-blue-300' : 'text-gray-600 border-gray-200'
+                  getCurrentEditor()?.isActive({ textAlign: 'right' }) ? 'bg-blue-100 text-blue-600 border-blue-300' : 'text-gray-600 border-gray-200'
                 }`}
                 title="Align Right"
               >
@@ -1169,11 +1230,11 @@ export default function PlaybookEditor({
               </button>
               <button
                 onClick={() => {
-                  editor.chain().setTextAlign('justify').run()
+                  executeCommand(editor => editor.chain().setTextAlign('justify').run())
                   setShowTextAlignPopup(false)
                 }}
                 className={`p-3 rounded hover:bg-gray-200 transition-colors flex items-center justify-center border ${
-                  editor.isActive({ textAlign: 'justify' }) ? 'bg-blue-100 text-blue-600 border-blue-300' : 'text-gray-600 border-gray-200'
+                  getCurrentEditor()?.isActive({ textAlign: 'justify' }) ? 'bg-blue-100 text-blue-600 border-blue-300' : 'text-gray-600 border-gray-200'
                 }`}
                 title="Justify"
               >
@@ -1200,7 +1261,7 @@ export default function PlaybookEditor({
                 <select
                   onChange={(e) => {
                     if (e.target.value) {
-                      editor.chain().setFontFamily(e.target.value).run()
+                      executeCommand(editor => editor.chain().setFontFamily(e.target.value).run())
                     }
                   }}
                   className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -1224,7 +1285,7 @@ export default function PlaybookEditor({
                 <select
                   onChange={(e) => {
                     if (e.target.value) {
-                      editor.chain().setFontSize(e.target.value).run()
+                      executeCommand(editor => editor.chain().setFontSize(e.target.value).run())
                     }
                   }}
                   className="w-full text-sm border border-gray-300 rounded px-3 py-2 bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -1260,6 +1321,7 @@ export default function PlaybookEditor({
             const currentPage = internalPages.find(page => page.id === currentPageId)
             return currentPage ? (
               <InternalPageEditor
+                key={currentPage.id}
                 ref={internalPageEditorRef}
                 page={{
                   id: currentPage.id,
@@ -1268,7 +1330,10 @@ export default function PlaybookEditor({
                   content: currentPage.content
                 }}
                 onContentChange={handleInternalPageContentChange}
-                collaborators={collaborators}
+                collaborators={collaborators.map(c => ({
+                  ...c,
+                  permission_level: c.permission_level || 'view' as const
+                }))}
                 rightSidebarCollapsed={rightSidebarCollapsed}
                 leftSidebarCollapsed={leftSidebarCollapsed}
               />
@@ -1310,31 +1375,43 @@ export default function PlaybookEditor({
         isOpen={showInternalPageModal}
         onClose={() => setShowInternalPageModal(false)}
         onCreatePage={handleCreateInternalPage}
-        collaborators={collaborators}
+        collaborators={collaborators.map(c => ({
+          ...c,
+          permission_level: c.permission_level || 'view' as const
+        }))}
       />
 
       {/* Internal Page Edit Modal */}
-      {editingPageId && (
-        <InternalPageEditModal
-          isOpen={showInternalPageEditModal}
-          onClose={() => {
-            setShowInternalPageEditModal(false)
-            setEditingPageId(null)
-          }}
-          onUpdate={handleInternalPageUpdate}
-          onDelete={handleInternalPageEditDelete}
-          page={(() => {
-            const page = internalPages.find(page => page.id === editingPageId)
-            return page ? {
+      {editingPageId && (() => {
+        const page = internalPages.find(page => page.id === editingPageId)
+        if (!page) return null
+        
+        return (
+          <InternalPageEditModal
+            isOpen={showInternalPageEditModal}
+            onClose={() => {
+              setShowInternalPageEditModal(false)
+              setEditingPageId(null)
+            }}
+            onUpdate={handleInternalPageUpdate}
+            onDelete={handleInternalPageEditDelete}
+            page={{
               id: page.id,
               name: page.page_name,
               title: page.page_title,
               content: page.content
-            } : null
-          })()}
-          collaborators={collaborators}
-        />
-      )}
+            }}
+            collaborators={collaborators.map(c => ({
+              id: c.id,
+              email: c.email,
+              app_metadata: {},
+              user_metadata: {},
+              aud: 'authenticated',
+              created_at: new Date().toISOString()
+            }))}
+          />
+        )
+      })()}
 
       {/* Hidden File Input */}
       <input

@@ -6,6 +6,8 @@ interface InternalPage {
   name: string
   title: string
   content: string
+  created_by?: string
+  permissions?: { user_id: string; permission_level: 'owner' | 'edit' | 'view' }[]
 }
 
 interface PageTabsProps {
@@ -14,6 +16,7 @@ interface PageTabsProps {
   onPageSelect: (pageId: string | null) => void
   onPageClose: (pageId: string) => void
   onPageEdit: (pageId: string) => void
+  currentUserId?: string
 }
 
 export default function PageTabs({
@@ -22,6 +25,7 @@ export default function PageTabs({
   onPageSelect,
   onPageClose,
   onPageEdit,
+  currentUserId,
 }: PageTabsProps) {
   const handleCloseClick = (e: React.MouseEvent, pageId: string) => {
     e.stopPropagation()
@@ -31,6 +35,22 @@ export default function PageTabs({
   const handleEditClick = (e: React.MouseEvent, pageId: string) => {
     e.stopPropagation()
     onPageEdit(pageId)
+  }
+
+  // Check if current user can edit a page (creator or owner permission)
+  const canEditPage = (page: InternalPage): boolean => {
+    if (!currentUserId) return false
+    
+    // Check if user is the creator
+    if (page.created_by === currentUserId) return true
+    
+    // Check if user has owner permission
+    if (page.permissions) {
+      const userPermission = page.permissions.find(p => p.user_id === currentUserId)
+      if (userPermission && userPermission.permission_level === 'owner') return true
+    }
+    
+    return false
   }
 
   return (
@@ -67,13 +87,15 @@ export default function PageTabs({
               {page.name}
             </span>
           </button>
-          <button
-            onClick={(e) => handleEditClick(e, page.id)}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 transition-all flex-shrink-0"
-            title="Edit page"
-          >
-            <Edit className="h-3 w-3" />
-          </button>
+          {canEditPage(page) && (
+            <button
+              onClick={(e) => handleEditClick(e, page.id)}
+              className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 transition-all flex-shrink-0"
+              title="Edit page"
+            >
+              <Edit className="h-3 w-3" />
+            </button>
+          )}
           <button
             onClick={(e) => handleCloseClick(e, page.id)}
             className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-gray-200 transition-all flex-shrink-0"

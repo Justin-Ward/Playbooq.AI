@@ -133,7 +133,7 @@ const InternalPageEditModal: React.FC<InternalPageEditModalProps> = ({
             <label className="block text-sm font-medium text-gray-700 mb-3">
               Page Permissions
             </label>
-            <div className="space-y-3 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3">
+            <div className="space-y-3 max-h-20 overflow-y-auto border border-gray-200 rounded-md p-3">
               {collaborators.map((collaborator) => {
                 const isSelected = selectedCollaborators.some(c => c.userId === collaborator.id)
                 const permission = selectedCollaborators.find(c => c.userId === collaborator.id)?.permission || 'view'

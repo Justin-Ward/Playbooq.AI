@@ -7,6 +7,7 @@ export interface InternalPage {
   created_at: string
   updated_at: string
   created_by: string
+  permissions?: { user_id: string; permission_level: 'owner' | 'edit' | 'view' }[]
 }
 
 export interface InternalPagePermission {

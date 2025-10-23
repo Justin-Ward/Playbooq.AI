@@ -169,7 +169,7 @@ function createAssignmentWidget(
   // Style the widget based on sidebar state
   Object.assign(widget.style, {
     position: 'absolute',
-    right: isRightSidebarCollapsed ? '-500px' : '10px', // Position in margin when collapsed, near when expanded
+    right: isRightSidebarCollapsed ? '-240px' : '10px', // Position in margin when collapsed, near when expanded
     top: '0',
     width: '180px',
     padding: '6px 10px',

@@ -243,7 +243,10 @@ export default function PlaybookGenerator({
       if (mode === 'update' && onContentGenerated) {
         onContentGenerated(result.content)
       } else {
-        onPlaybookGenerated(result)
+        onPlaybookGenerated({
+          ...result,
+          content: result.content
+        })
       }
       
       // Clear form

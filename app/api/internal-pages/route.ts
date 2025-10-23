@@ -41,19 +41,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ data: [] })
     }
 
-    // Get all internal pages for the playbook
-    const { data, error } = await supabaseAdmin
+    // Get all internal pages for the playbook with their permissions
+    const { data: pagesData, error: pagesError } = await supabaseAdmin
       .from('internal_pages')
       .select('*')
       .eq('playbook_id', playbookId)
       .order('created_at', { ascending: true })
 
-    if (error) {
-      console.error('Error fetching internal pages:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (pagesError) {
+      console.error('Error fetching internal pages:', pagesError)
+      return NextResponse.json({ error: pagesError.message }, { status: 500 })
     }
 
-    return NextResponse.json({ data })
+    // Fetch permissions for all pages
+    if (pagesData && pagesData.length > 0) {
+      const pageIds = pagesData.map((page: any) => page.id)
+      const { data: permissionsData, error: permissionsError } = await supabaseAdmin
+        .from('internal_page_permissions')
+        .select('internal_page_id, user_id, permission_level')
+        .in('internal_page_id', pageIds)
+
+      if (!permissionsError && permissionsData) {
+        // Attach permissions to each page
+        const pagesWithPermissions = pagesData.map((page: any) => ({
+          ...page,
+          permissions: permissionsData
+            .filter((perm: any) => perm.internal_page_id === page.id)
+            .map((perm: any) => ({
+              user_id: perm.user_id,
+              permission_level: perm.permission_level
+            }))
+        }))
+        return NextResponse.json({ data: pagesWithPermissions })
+      }
+    }
+
+    return NextResponse.json({ data: pagesData })
   } catch (error: any) {
     console.error('Error in GET /api/internal-pages:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
