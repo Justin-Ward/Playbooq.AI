@@ -415,6 +415,7 @@ export default function PlaybooksPage() {
               <button
                 onClick={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
                 className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors flex-shrink-0"
+                title={leftSidebarCollapsed ? "Expand left sidebar" : "Collapse left sidebar"}
               >
                 {leftSidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
               </button>
@@ -457,6 +458,7 @@ export default function PlaybooksPage() {
               <button
                 onClick={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
                 className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                title={rightSidebarCollapsed ? "Expand right sidebar" : "Collapse right sidebar"}
               >
                 {rightSidebarCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
               </button>
